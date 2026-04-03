@@ -1,0 +1,82 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600&family=Be+Vietnam+Pro:wght@400;500;700&family=Lexend:wght@400;600;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Poppins", sans-serif;
+  --font-kids: "Lexend", sans-serif;
+  
+  --color-primary: #E85D75;
+  --color-secondary: #4ECDC4;
+  --color-cream: #FFFDF9;
+  --color-accent: #B39DDB;
+  
+  /* Kids Theme */
+  --color-kids-orange: #FF9F1C;
+  --color-kids-blue: #2EC4B6;
+  
+  /* Professional Theme */
+  --color-pro-green: #2D6A4F;
+  --color-pro-white: #F8F9FA;
+  
+  /* Elderly Theme */
+  --color-elderly-bg: #FFF9E6;
+  --color-elderly-text: #1A1A1A;
+}
+
+@layer base {
+  body {
+    @apply bg-cream text-gray-800 font-sans transition-colors duration-500;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+}
+
+/* Elderly Mode Overrides */
+.theme-elderly {
+  font-size: 1.25rem; /* Base font size increase */
+  background-color: var(--color-elderly-bg);
+  color: var(--color-elderly-text);
+}
+
+.theme-elderly h1, .theme-elderly h2, .theme-elderly h3 {
+  font-size: 2.5rem;
+  font-weight: 800;
+}
+
+.theme-elderly .btn-huge {
+  @apply w-full aspect-square flex flex-col items-center justify-center gap-4 p-8 rounded-[40px] border-4 border-gray-900 text-2xl font-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)];
+}
+
+/* Kids Mode Overrides */
+.theme-kids {
+  font-family: var(--font-kids);
+  background-color: #FFF;
+}
+
+.theme-kids .card-bouncy {
+  @apply rounded-[32px] border-4 border-kids-orange shadow-[8px_8px_0px_0px_#FF9F1C] hover:translate-x-[-4px] hover:translate-y-[-4px] hover:shadow-[12px_12px_0px_0px_#FF9F1C] transition-all;
+}
+
+.gradient-primary {
+  background: linear-gradient(135deg, #E85D75 0%, #FF8E9E 100%);
+}
+
+.gradient-kids {
+  background: linear-gradient(135deg, #FF9F1C 0%, #FFBF69 100%);
+}
+
+.glass-card {
+  @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-xl;
+}
+
+/* Voice Assistant Pulse */
+.voice-pulse {
+  @apply relative flex items-center justify-center;
+}
+
+.voice-pulse::before {
+  content: '';
+  @apply absolute w-full h-full bg-primary/30 rounded-full animate-ping;
+}

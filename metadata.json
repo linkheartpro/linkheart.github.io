@@ -1,0 +1,8 @@
+{
+  "name": "LinkHeart - Omni-Interface Platform",
+  "description": "Nền tảng đồng hành đa thế hệ với 3 giao diện thích ứng: Trẻ em, Người trưởng thành và Người cao tuổi.",
+  "requestFramePermissions": [
+    "geolocation",
+    "microphone"
+  ]
+}
