@@ -9,6 +9,7 @@ import {
   Users, 
   CheckCircle2, 
   ArrowRight,
+  ArrowLeft,
   Menu,
   X,
   Phone,
@@ -48,8 +49,19 @@ import LandingPage from "./components/LandingPage";
 import Auth from "./components/Auth";
 
 // --- Types ---
-type UserType = 'portal' | 'kids' | 'pro' | 'elderly';
+type UserType = 'portal' | 'kids' | 'pro' | 'elderly' | 'pricing' | 'payment';
 type ProView = 'home' | 'dashboard' | 'appointments' | 'wallet' | 'tracking' | 'footer-page';
+
+interface Plan {
+  name: string;
+  price: string;
+  period: string;
+  features: string[];
+  color: string;
+  button: string;
+  highlight?: boolean;
+  isCurrent?: boolean;
+}
 
 interface Appointment {
   id: string;
@@ -86,17 +98,13 @@ const Portal = ({ onSelect }: { onSelect: (type: UserType) => void }) => {
         </p>
         
         <div className="flex flex-col md:flex-row items-center justify-center gap-4 mb-16">
-          <button className="px-10 py-5 bg-primary text-white font-black text-xl rounded-full shadow-[0_10px_30px_-10px_rgba(232,93,117,0.5)] hover:scale-105 transition-transform active:scale-95">
-            Trải nghiệm ngay – Giảm 50% giờ đầu
+          <button 
+            onClick={() => onSelect('pricing')}
+            className="px-10 py-5 bg-gray-900 text-white font-black text-xl rounded-full shadow-xl hover:scale-105 transition-transform active:scale-95 flex items-center gap-3"
+          >
+            <CreditCard className="w-6 h-6 text-primary" />
+            XEM CÁC GÓI DỊCH VỤ
           </button>
-          <div className="flex items-center gap-4 p-2 pl-4 bg-white/50 backdrop-blur rounded-full border border-white">
-             <div className="flex -space-x-2">
-               {[1,2,3].map(i => (
-                 <img key={i} src={`https://picsum.photos/seed/face${i}/40/40`} className="w-10 h-10 rounded-full border-2 border-white" alt="Face" referrerPolicy="no-referrer" />
-               ))}
-             </div>
-             <p className="text-sm font-bold text-gray-500 mr-2">10,000+ Gia đình tin dùng</p>
-          </div>
         </div>
       </motion.div>
 
@@ -676,8 +684,9 @@ const KidsMode = ({ onBack }: { onBack: () => void }) => {
             <button onClick={() => showToast('Chưa có bạn bè trực tuyến')} className="font-black text-gray-400 hover:text-kids-orange transition-colors">BẠN BÈ</button>
             <button onClick={() => showToast('Nhật ký đang trống')} className="font-black text-gray-400 hover:text-kids-orange transition-colors">NHẬT KÝ</button>
           </div>
-          <button onClick={onBack} className="p-3 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors">
-            <LogOut className="w-6 h-6" />
+          <button onClick={onBack} className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors font-black text-xs text-gray-600">
+            <ArrowLeft className="w-5 h-5" />
+            <span>QUAY LẠI</span>
           </button>
         </div>
       </nav>
@@ -1156,7 +1165,10 @@ const ProMode = ({ onBack, walletBalance, setWalletBalance }: { onBack: () => vo
               <span className="hidden md:inline">{item.label}</span>
             </button>
           ))}
-          <button onClick={onBack} className="text-gray-400 hover:text-red-500 transition-colors"><LogOut className="w-5 h-5" /></button>
+          <button onClick={onBack} className="flex items-center gap-2 px-4 py-2 bg-gray-50 text-gray-400 hover:text-pro-green transition-all rounded-xl font-bold text-sm">
+            <ArrowLeft className="w-5 h-5" />
+            <span>QUAY LẠI</span>
+          </button>
         </div>
       </nav>
 
@@ -1776,8 +1788,9 @@ const ElderlyMode = ({ onBack }: { onBack: () => void }) => {
           >
             {highContrast ? 'Tắt Tương Phản' : 'Màu Tương Phản'}
           </button>
-          <button onClick={onBack} className="p-6 bg-red-500 text-white rounded-3xl border-4 border-gray-900 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none transition-all">
-            <LogOut className="w-10 h-10" />
+          <button onClick={onBack} className="px-8 py-6 bg-red-500 text-white rounded-3xl border-4 border-gray-900 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none transition-all flex items-center gap-4">
+            <ArrowLeft className="w-10 h-10" />
+            <span className="text-3xl font-black">QUAY LẠI</span>
           </button>
         </div>
       </nav>
@@ -2002,11 +2015,178 @@ const ElderlyMode = ({ onBack }: { onBack: () => void }) => {
   );
 };
 
+// --- Pricing Component ---
+const Pricing = ({ onBack, onSelectPlan, trialDaysLeft }: { onBack: () => void; onSelectPlan: (plan: Plan) => void; trialDaysLeft: number | null }) => {
+  const plans: Plan[] = [
+    {
+      name: "Gói Cơ Bản",
+      price: "199.000đ",
+      period: "/tháng",
+      features: ["Đồng hành 2 giờ/tuần", "Hỗ trợ 24/7", "Báo cáo cơ bản"],
+      color: "border-gray-100",
+      button: "Bắt đầu ngay"
+    },
+    {
+      name: "Gói Phổ Thông",
+      price: "499.000đ",
+      period: "/tháng",
+      features: ["Đồng hành 5 giờ/tuần", "Hỗ trợ 24/7", "Báo cáo chi tiết", "Ưu tiên chọn Companion"],
+      color: "border-primary/30 bg-primary/5",
+      button: "Phổ biến nhất",
+      highlight: true
+    },
+    {
+      name: "Gói Hiện Tại",
+      price: "Free",
+      period: " (15 ngày)",
+      features: ["Trải nghiệm Full tính năng", "Hỗ trợ 24/7", "Báo cáo chi tiết", "Kết nối đa thế hệ"],
+      color: "border-gray-900 bg-gray-900 text-white",
+      button: trialDaysLeft !== null ? `Còn ${trialDaysLeft} ngày` : "Đang dùng thử",
+      isCurrent: true
+    }
+  ];
+
+  return (
+    <div className="min-h-screen bg-cream p-6 py-24 flex flex-col items-center relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl -mr-48 -mt-48" />
+      <button 
+        onClick={onBack}
+        className="absolute top-12 left-12 p-4 bg-white rounded-full shadow-xl hover:scale-110 transition-transform active:scale-95 z-20"
+      >
+        <ArrowLeft className="w-8 h-8 text-gray-900" />
+      </button>
+
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-center mb-16 relative z-10"
+      >
+        <h2 className="text-5xl font-black mb-4">Các Gói Dịch Vụ</h2>
+        <p className="text-xl text-gray-500 font-bold">Lựa chọn gói phù hợp để kết nối yêu thương bền vững.</p>
+      </motion.div>
+
+      <div className="grid lg:grid-cols-3 gap-8 max-w-6xl w-full relative z-10">
+        {plans.map((plan, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.1 }}
+            className={`p-10 rounded-[48px] border-4 flex flex-col ${plan.color} shadow-xl relative overflow-hidden bg-white`}
+          >
+            {plan.highlight && (
+              <div className="absolute top-0 right-0 bg-primary text-white px-6 py-2 rounded-bl-3xl font-black text-xs uppercase tracking-widest">
+                Phổ biến
+              </div>
+            )}
+            <h3 className={`text-2xl font-black mb-2 ${plan.isCurrent ? 'text-white' : 'text-gray-900'}`}>{plan.name}</h3>
+            <div className="mb-8">
+              <span className={`text-5xl font-black ${plan.isCurrent ? 'text-primary' : 'text-gray-900'}`}>{plan.price}</span>
+              <span className={`text-sm font-bold ${plan.isCurrent ? 'text-gray-400' : 'text-gray-500'}`}>{plan.period}</span>
+            </div>
+            
+            <ul className="space-y-4 mb-10 flex-1">
+              {plan.features.map((f, j) => (
+                <li key={j} className="flex items-center gap-3">
+                  <CheckCircle2 className={`w-5 h-5 ${plan.isCurrent ? 'text-primary' : 'text-green-500'}`} />
+                  <span className={`font-bold ${plan.isCurrent ? 'text-gray-300' : 'text-gray-600'}`}>{f}</span>
+                </li>
+              ))}
+            </ul>
+
+            <button 
+              onClick={() => !plan.isCurrent && onSelectPlan(plan)}
+              className={`w-full py-5 rounded-3xl font-black text-xl transition-all active:scale-95 ${
+              plan.isCurrent ? 'bg-white/20 text-white cursor-default' : plan.highlight ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+            }`}>
+              {plan.button}
+            </button>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// --- Payment Component ---
+const PaymentPage = ({ onBack, plan, user }: { onBack: () => void; plan: Plan; user: FirebaseUser }) => {
+  const transferCode = `LH${user.uid.slice(0, 6).toUpperCase()}`;
+
+  return (
+    <div className="min-h-screen bg-cream p-6 py-24 flex flex-col items-center relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-96 h-96 bg-primary/20 rounded-full blur-3xl -mr-48 -mt-48" />
+      <button 
+        onClick={onBack}
+        className="absolute top-12 left-12 p-4 bg-white rounded-full shadow-xl hover:scale-110 transition-transform active:scale-95 z-20"
+      >
+        <ArrowLeft className="w-8 h-8 text-gray-900" />
+      </button>
+
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="w-full max-w-4xl bg-white rounded-[48px] shadow-2xl border-8 border-white p-8 md:p-16 flex flex-col md:flex-row gap-12 items-center"
+      >
+        <div className="flex-1 text-center md:text-left">
+          <div className="inline-block px-4 py-1 bg-primary/10 text-primary text-xs font-black rounded-full mb-4 uppercase">
+            Thanh Toán Đăng Ký
+          </div>
+          <h2 className="text-4xl font-black mb-4">Nâng cấp {plan.name}</h2>
+          <p className="text-xl text-gray-500 font-bold mb-8">Thời gian sử dụng: <span className="text-gray-900">1 Tháng</span></p>
+          
+          <div className="space-y-6 bg-gray-50 p-8 rounded-3xl border-2 border-gray-100 mb-8">
+            <div>
+              <p className="text-xs font-black text-gray-400 uppercase mb-1">Số tài khoản</p>
+              <p className="text-2xl font-black text-gray-900">0123 4567 8999</p>
+              <p className="text-sm font-bold text-gray-500 italic">Ngân hàng MB Bank - Chủ TK: LINKHEART VN</p>
+            </div>
+            <div>
+              <p className="text-xs font-black text-gray-400 uppercase mb-1">Mã chuyển khoản</p>
+              <div className="flex items-center gap-3">
+                <p className="text-3xl font-black text-primary select-all">{transferCode}</p>
+                <div className="px-3 py-1 bg-primary/10 text-primary text-[10px] font-black rounded-lg">BẮT BUỘC</div>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-black text-gray-400 uppercase mb-1">Số tiền</p>
+              <p className="text-3xl font-black text-gray-900">{plan.price}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 text-sm font-bold text-gray-400">
+            <Shield className="w-5 h-5" />
+            Giao dịch được bảo mật bởi LinkHeart. Hệ thống sẽ tự động kích hoạt sau 1-3 phút.
+          </div>
+        </div>
+
+        <div className="w-64 md:w-80 flex flex-col items-center gap-6">
+          <div className="bg-white p-6 rounded-[32px] shadow-xl border-4 border-gray-50 relative">
+             <img 
+               src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=STK:012345678999|CODE:${transferCode}|AMOUNT:${plan.price}`} 
+               alt="QR Code Payment" 
+               className="w-full h-auto rounded-xl"
+               referrerPolicy="no-referrer"
+             />
+             <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
+                <Heart className="w-20 h-20 text-primary" />
+             </div>
+          </div>
+          <p className="text-center font-black text-gray-900 flex items-center gap-2">
+            <Smartphone className="w-5 h-5 text-primary" />
+            Quét mã để thanh toán nhanh
+          </p>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
 // --- Main App ---
 export default function App() {
   const [userType, setUserType] = useState<UserType>('portal');
   const [isLoading, setIsLoading] = useState(false);
   const [walletBalance, setWalletBalance] = useState(2450000);
+  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   
   // Auth states
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -2169,28 +2349,30 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Auth Info & Logout Float */}
-      <div className="fixed top-6 right-6 z-[100] flex items-center gap-4">
-         {trialDaysLeft !== null && (
-           <div className={`px-4 py-2 rounded-full border-2 font-black text-xs shadow-lg hidden md:block ${trialDaysLeft <= 3 ? 'bg-red-50 border-red-200 text-red-500' : 'bg-green-50 border-green-200 text-green-500'}`}>
-              DÙNG THỬ: {trialDaysLeft} NGÀY CÒN LẠI
+      {/* Auth Info & Logout Float - Only show on Portal/Pricing pages to avoid overlap in Modes */}
+      {(userType === 'portal' || userType === 'pricing' || userType === 'payment') && (
+        <div className="fixed top-6 right-6 z-[100] flex items-center gap-4">
+           {trialDaysLeft !== null && (
+             <div className={`px-4 py-2 rounded-full border-2 font-black text-xs shadow-lg hidden md:block ${trialDaysLeft <= 3 ? 'bg-red-50 border-red-200 text-red-500' : 'bg-green-50 border-green-200 text-green-500'}`}>
+                DÙNG THỬ: {trialDaysLeft} NGÀY CÒN LẠI
+             </div>
+           )}
+           <div className="bg-white/80 backdrop-blur p-2 pr-6 rounded-full shadow-xl border-4 border-white flex items-center gap-3">
+              <img src={user.photoURL || `https://picsum.photos/seed/${user.uid}/40/40`} className="w-10 h-10 rounded-full border-2 border-primary shadow-sm" alt="User" referrerPolicy="no-referrer" />
+              <div>
+                <p className="text-xs font-black text-gray-400 uppercase leading-none mb-1">Thành viên</p>
+                <p className="text-sm font-black text-gray-900 leading-none truncate max-w-[120px]">{user.displayName || user.email?.split('@')[0]}</p>
+              </div>
+              <button 
+                onClick={handleLogout}
+                className="ml-4 p-3 bg-red-50 text-red-500 rounded-full hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                title="Đăng xuất"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
            </div>
-         )}
-         <div className="bg-white/80 backdrop-blur p-2 pr-6 rounded-full shadow-xl border-4 border-white flex items-center gap-3">
-            <img src={user.photoURL || `https://picsum.photos/seed/${user.uid}/40/40`} className="w-10 h-10 rounded-full border-2 border-primary shadow-sm" alt="User" referrerPolicy="no-referrer" />
-            <div>
-              <p className="text-xs font-black text-gray-400 uppercase leading-none mb-1">Thành viên</p>
-              <p className="text-sm font-black text-gray-900 leading-none truncate max-w-[120px]">{user.displayName || user.email?.split('@')[0]}</p>
-            </div>
-            <button 
-              onClick={handleLogout}
-              className="ml-4 p-3 bg-red-50 text-red-500 rounded-full hover:bg-red-500 hover:text-white transition-all shadow-sm"
-              title="Đăng xuất"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
-         </div>
-      </div>
+        </div>
+      )}
 
       <AnimatePresence mode="wait">
         {userType === 'portal' && (
@@ -2201,6 +2383,37 @@ export default function App() {
             exit={{ opacity: 0, scale: 0.95 }}
           >
             <Portal onSelect={handleSelect} />
+          </motion.div>
+        )}
+        {userType === 'pricing' && (
+          <motion.div 
+            key="pricing" 
+            initial={{ opacity: 0, scale: 1.1 }} 
+            animate={{ opacity: 1, scale: 1 }} 
+            exit={{ opacity: 0, scale: 0.9 }}
+          >
+            <Pricing 
+              onBack={() => handleSelect('portal')} 
+              trialDaysLeft={trialDaysLeft} 
+              onSelectPlan={(plan) => {
+                setSelectedPlan(plan);
+                handleSelect('payment');
+              }}
+            />
+          </motion.div>
+        )}
+        {userType === 'payment' && selectedPlan && user && (
+          <motion.div 
+            key="payment" 
+            initial={{ y: 100, opacity: 0 }} 
+            animate={{ y: 0, opacity: 1 }} 
+            exit={{ y: -100, opacity: 0 }}
+          >
+            <PaymentPage 
+              onBack={() => handleSelect('pricing')} 
+              plan={selectedPlan}
+              user={user}
+            />
           </motion.div>
         )}
         {userType === 'kids' && (
