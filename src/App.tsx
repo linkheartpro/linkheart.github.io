@@ -39,9 +39,13 @@ import {
   Navigation,
   Video,
   Send,
-  User
+  User,
+  Bot,
+  Sparkles,
+  Loader2
 } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { GoogleGenAI } from "@google/genai";
 import { auth, db } from "./firebase";
 import { onAuthStateChanged, signOut, User as FirebaseUser } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
@@ -152,26 +156,160 @@ const Portal = ({ onSelect }: { onSelect: (type: UserType) => void }) => {
           </motion.button>
         ))}
       </div>
+    </div>
+  );
+};
+// --- LinkyAI Persistent Assistant Component ---
+const LinkyAI = ({ user }: { user: FirebaseUser }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [messages, setMessages] = useState<{ role: 'user' | 'ai', text: string }[]>([
+    { role: 'ai', text: `Chào ${user.displayName || 'bạn'}, Linky đây! Mình có thể giúp gì cho gia đình bạn hôm nay?` }
+  ]);
+  const [input, setInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-      {/* Linky Voice AI Floating Icon (Page 1) */}
-      <motion.div
-        drag
-        dragConstraints={{ left: -100, right: 100, top: -100, bottom: 100 }}
-        className="fixed bottom-8 right-8 z-50 cursor-pointer group"
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, isTyping]);
+
+  const handleSend = async () => {
+    if (!input.trim() || isTyping) return;
+
+    const userMsg = input.trim();
+    setInput('');
+    setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+    setIsTyping(true);
+
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: `Hệ thống: Bạn là Linky, một trợ lý thông minh và ấm áp của ứng dụng LinkHeart. 
+            LinkHeart là ứng dụng kết nối đa thế hệ: 
+            - Cho bé yêu (Kids Mode): Anh chị Companion sinh viên chơi cùng bé.
+            - Cho người trưởng thành (Pro Mode): Quản lý gia đình, nạp ví, đặt lịch.
+            - Cho cha mẹ (Senior Mode): Giao diện đơn giản cho người già, theo dõi sức khỏe.
+            Hãy trả lời ngắn gọn, thân thiện, và luôn hỗ trợ người dùng về các dịch vụ của LinkHeart.` }]
+          },
+          ...messages.map(m => ({
+            role: m.role === 'ai' ? 'model' : 'user' as const,
+            parts: [{ text: m.text }],
+          })),
+          { role: 'user', parts: [{ text: userMsg }] }
+        ]
+      });
+
+      const aiText = response.text || "Xin lỗi, mình đang gặp chút trục trặc. Bạn thử lại nhé!";
+      setMessages(prev => [...prev, { role: 'ai', text: aiText }]);
+    } catch (error) {
+      console.error("Gemini Error:", error);
+      setMessages(prev => [...prev, { role: 'ai', text: "Kết nối của Linky đang bị gián đoạn, hãy kiểm tra lại mạng nhé!" }]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  return (
+    <div className="fixed bottom-8 right-8 z-[200]">
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.8, filter: 'blur(10px)' }}
+            animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, y: 50, scale: 0.8, filter: 'blur(10px)' }}
+            className="absolute bottom-24 right-0 w-[90vw] md:w-[400px] h-[550px] bg-white rounded-[40px] shadow-2xl border-4 border-primary overflow-hidden flex flex-col"
+          >
+            {/* Header */}
+            <div className="bg-primary p-6 flex justify-between items-center text-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                  <Bot className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-black text-lg leading-none">Linky AI</h4>
+                  <p className="text-[10px] font-bold opacity-70 uppercase tracking-widest mt-1">Trợ lý gia đình</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsOpen(false)}
+                className="p-2 hover:bg-white/10 rounded-full transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Chat Messages */}
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50/50">
+              {messages.map((m, i) => (
+                <motion.div 
+                  key={i}
+                  initial={{ opacity: 0, x: m.role === 'ai' ? -20 : 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className={`flex ${m.role === 'ai' ? 'justify-start' : 'justify-end'}`}
+                >
+                  <div className={`max-w-[85%] p-4 rounded-3xl font-bold text-sm shadow-sm ${
+                    m.role === 'ai' 
+                      ? 'bg-white text-gray-800 border-2 border-primary/10 rounded-tl-none' 
+                      : 'bg-primary text-white rounded-tr-none'
+                  }`}>
+                    {m.text}
+                  </div>
+                </motion.div>
+              ))}
+              {isTyping && (
+                <div className="flex justify-start">
+                  <div className="bg-white p-4 rounded-3xl rounded-tl-none border-2 border-primary/10 flex gap-1">
+                    <span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce" />
+                    <span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce delay-75" />
+                    <span className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce delay-150" />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Input */}
+            <div className="p-6 bg-white border-t-2 border-gray-100 flex gap-3">
+              <input 
+                type="text" 
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                placeholder="Hỏi Linky bất cứ điều gì..."
+                className="flex-1 bg-gray-50 border-2 border-gray-100 rounded-2xl px-5 text-sm font-bold focus:border-primary focus:ring-0 transition-colors"
+              />
+              <button 
+                onClick={handleSend}
+                disabled={isTyping || !input.trim()}
+                className="p-4 bg-primary text-white rounded-2xl hover:scale-110 active:scale-95 transition-all shadow-lg disabled:opacity-50 disabled:scale-100"
+              >
+                {isTyping ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <motion.button
+        onClick={() => setIsOpen(!isOpen)}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        className="relative group p-6 bg-white rounded-full shadow-2xl border-4 border-primary z-10"
       >
-        <div className="relative">
-          <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping group-hover:animate-none" />
-          <div className="bg-white p-5 rounded-full shadow-2xl border-4 border-primary relative z-10 flex items-center gap-3">
-             <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white shadow-lg">
-                <Mic className="w-6 h-6" />
-             </div>
-             <div className="hidden group-hover:block transition-all pr-4">
-                <p className="text-xs font-black text-primary uppercase">Linky AI</p>
-                <p className="text-sm font-bold whitespace-nowrap text-gray-700 leading-tight">"Hôm nay cần <br />Linky giúp gì?"</p>
-             </div>
+        <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping group-hover:animate-none" />
+        <Bot className="w-8 h-8 text-primary relative z-10" />
+        {!isOpen && (
+          <div className="absolute -top-12 right-0 bg-white px-4 py-2 rounded-2xl shadow-xl border-2 border-primary/10 whitespace-nowrap hidden md:block group-hover:block transition-all scale-0 group-hover:scale-100 origin-bottom-right">
+             <p className="text-[10px] font-black text-primary uppercase leading-tight">Linky AI</p>
+             <p className="text-xs font-bold text-gray-700">Chat với Linky!</p>
           </div>
-        </div>
-      </motion.div>
+        )}
+      </motion.button>
     </div>
   );
 };
@@ -2451,6 +2589,9 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Persistence LinkyAI Assistant */}
+      {user && <LinkyAI user={user} />}
     </div>
   );
 }
