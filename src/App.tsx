@@ -37,9 +37,15 @@ import {
   History,
   Navigation,
   Video,
-  Send
+  Send,
+  User
 } from "lucide-react";
 import React, { useState, useEffect } from "react";
+import { auth, db } from "./firebase";
+import { onAuthStateChanged, signOut, User as FirebaseUser } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import LandingPage from "./components/LandingPage";
+import Auth from "./components/Auth";
 
 // --- Types ---
 type UserType = 'portal' | 'kids' | 'pro' | 'elderly';
@@ -57,20 +63,44 @@ interface Appointment {
 // --- Portal Component ---
 const Portal = ({ onSelect }: { onSelect: (type: UserType) => void }) => {
   return (
-    <div className="min-h-screen bg-cream flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-cream flex flex-col items-center p-4 py-12 md:py-24 relative overflow-hidden">
+      {/* Abstract Background Shapes */}
+      <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32" />
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-secondary/5 rounded-full blur-3xl -ml-48 -mb-48" />
+
+      {/* Hero Section */}
       <motion.div 
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
-        className="text-center mb-12"
+        className="text-center mb-16 max-w-4xl relative z-10"
       >
-        <div className="w-16 h-16 gradient-primary rounded-2xl flex items-center justify-center shadow-xl mx-auto mb-6">
-          <Heart className="text-white w-10 h-10" fill="currentColor" />
+        <div className="inline-block px-4 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full mb-6 uppercase tracking-widest">
+          Kết nối tâm giao - Lan tỏa yêu thương
         </div>
-        <h1 className="text-4xl md:text-5xl font-bold mb-4">Hôm nay LinkHeart có thể <br /> đồng hành cùng ai?</h1>
-        <p className="text-gray-500">Chọn trải nghiệm phù hợp với nhu cầu của bạn</p>
+        <h1 className="text-5xl md:text-7xl font-black mb-8 leading-tight">
+          LinkHeart: Đồng hành <br className="hidden md:block" />
+          <span className="text-primary italic">đa thế hệ</span>
+        </h1>
+        <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto font-medium">
+          Dịch vụ chăm sóc và đồng hành tin cậy cho mọi thành viên trong gia đình bạn.
+        </p>
+        
+        <div className="flex flex-col md:flex-row items-center justify-center gap-4 mb-16">
+          <button className="px-10 py-5 bg-primary text-white font-black text-xl rounded-full shadow-[0_10px_30px_-10px_rgba(232,93,117,0.5)] hover:scale-105 transition-transform active:scale-95">
+            Trải nghiệm ngay – Giảm 50% giờ đầu
+          </button>
+          <div className="flex items-center gap-4 p-2 pl-4 bg-white/50 backdrop-blur rounded-full border border-white">
+             <div className="flex -space-x-2">
+               {[1,2,3].map(i => (
+                 <img key={i} src={`https://picsum.photos/seed/face${i}/40/40`} className="w-10 h-10 rounded-full border-2 border-white" alt="Face" referrerPolicy="no-referrer" />
+               ))}
+             </div>
+             <p className="text-sm font-bold text-gray-500 mr-2">10,000+ Gia đình tin dùng</p>
+          </div>
+        </div>
       </motion.div>
 
-      <div className="grid md:grid-cols-3 gap-8 max-w-6xl w-full">
+      <div className="grid md:grid-cols-3 gap-8 max-w-6xl w-full relative z-10">
         {[
           { 
             id: 'kids', 
@@ -103,34 +133,77 @@ const Portal = ({ onSelect }: { onSelect: (type: UserType) => void }) => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.1 }}
             onClick={() => onSelect(item.id as UserType)}
-            className={`p-8 rounded-[40px] border-4 bg-white text-left transition-all group ${item.color} shadow-xl hover:scale-105`}
+            className={`p-10 rounded-[48px] border-4 bg-white text-left transition-all group ${item.color} shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] hover:shadow-[0_40px_60px_-20px_rgba(0,0,0,0.15)] hover:-translate-y-2`}
           >
-            <div className="mb-6 group-hover:scale-110 transition-transform">{item.icon}</div>
-            <h3 className="text-2xl font-bold mb-2">{item.title}</h3>
-            <p className="text-gray-500 text-sm mb-4 leading-relaxed">{item.desc}</p>
-            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{item.tag}</span>
+            <div className="mb-8 p-4 bg-gray-50 rounded-2xl w-fit group-hover:scale-110 transition-transform">{item.icon}</div>
+            <h3 className="text-3xl font-bold mb-3">{item.title}</h3>
+            <p className="text-gray-500 text-lg mb-6 leading-relaxed">{item.desc}</p>
+            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-gray-400">
+               {item.tag} <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+            </div>
           </motion.button>
         ))}
       </div>
+
+      {/* Linky Voice AI Floating Icon (Page 1) */}
+      <motion.div
+        drag
+        dragConstraints={{ left: -100, right: 100, top: -100, bottom: 100 }}
+        className="fixed bottom-8 right-8 z-50 cursor-pointer group"
+      >
+        <div className="relative">
+          <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping group-hover:animate-none" />
+          <div className="bg-white p-5 rounded-full shadow-2xl border-4 border-primary relative z-10 flex items-center gap-3">
+             <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-white shadow-lg">
+                <Mic className="w-6 h-6" />
+             </div>
+             <div className="hidden group-hover:block transition-all pr-4">
+                <p className="text-xs font-black text-primary uppercase">Linky AI</p>
+                <p className="text-sm font-bold whitespace-nowrap text-gray-700 leading-tight">"Hôm nay cần <br />Linky giúp gì?"</p>
+             </div>
+          </div>
+        </div>
+      </motion.div>
     </div>
   );
 };
 
 // --- Mock Data ---
 interface Companion {
+  id: string;
   name: string;
   age: number;
   school: string;
   rating: number;
   bio: string;
   img: string;
+  skills: string[];
+  price?: number;
 }
 
 const COMPANIONS: Companion[] = [
-  { name: 'Nguyễn Minh Anh', age: 21, school: 'ĐH Ngoại Thương', rating: 4.9, bio: 'Năng động, yêu trẻ em, có chứng chỉ sơ cứu.', img: 'https://picsum.photos/seed/c1/200/200' },
-  { name: 'Trần Hoàng Nam', age: 22, school: 'ĐH Bách Khoa', rating: 4.8, bio: 'Giỏi toán, thích chơi thể thao, nhiệt tình.', img: 'https://picsum.photos/seed/c2/200/200' },
-  { name: 'Lê Thị Thanh', age: 20, school: 'ĐH Sư Phạm', rating: 5.0, bio: 'Kỹ năng kể chuyện tốt, kiên nhẫn và chu đáo.', img: 'https://picsum.photos/seed/c3/200/200' },
-  { name: 'Phạm Đức Hiếu', age: 23, school: 'ĐH Y Dược', rating: 4.7, bio: 'Kiến thức y tế tốt, điềm đạm, hỗ trợ người già tốt.', img: 'https://picsum.photos/seed/c4/200/200' }
+  { id: 'c1', name: 'Nguyễn Minh Anh', age: 21, school: 'ĐH Ngoại Thương', rating: 4.9, bio: 'Năng động, yêu trẻ em, có chứng chỉ sơ cứu.', img: 'https://picsum.photos/seed/c1/200/200', skills: ['Tiếng Anh', 'Dạy vẽ'] },
+  { id: 'c2', name: 'Trần Hoàng Nam', age: 22, school: 'ĐH Bách Khoa', rating: 4.8, bio: 'Giỏi toán, thích chơi thể thao, nhiệt tình.', img: 'https://picsum.photos/seed/c2/200/200', skills: ['Toán', 'Bóng rổ'] },
+  { id: 'c3', name: 'Lê Thị Thanh', age: 20, school: 'ĐH Sư Phạm', rating: 5.0, bio: 'Kỹ năng kể chuyện tốt, kiên nhẫn và chu đáo.', img: 'https://picsum.photos/seed/c3/200/200', skills: ['Kể chuyện', 'Âm nhạc'] },
+  { id: 'c4', name: 'Phạm Đức Hiếu', age: 23, school: 'ĐH Y Dược', rating: 4.7, bio: 'Kiến thức y tế tốt, điềm đạm, hỗ trợ người già tốt.', img: 'https://picsum.photos/seed/c4/200/200', skills: ['Sơ cứu', 'Y tế'] }
+];
+
+const PRICES = {
+  kids: 149000,
+  social: 119000,
+  senior: 179000
+};
+
+const HIEU_THAO_PACKAGES = [
+  { id: 's', title: 'Hiếu Thảo S', hours: 20, price: 3390000, desc: 'Phù hợp dùng thử, làm quen với Companion.' },
+  { id: 'm', title: 'Hiếu Thảo M', hours: 40, price: 6390000, desc: 'Tặng máy đo huyết áp điện tử + Báo cáo.' },
+  { id: 'l', title: 'Hiếu Thảo L', hours: 60, price: 8990000, desc: 'Companion cố định + Nút SOS 24/7 + Miễn phí Tech-Tutor.' }
+];
+
+const KIDS_MISSIONS = [
+  { id: 1, title: 'Nhà toán học nhí', task: 'Giải 5 bài toán cùng Companion', badge: '🧮' },
+  { id: 2, title: 'Kình ngư nhỏ', task: 'Hoàn thành buổi tập bơi', badge: '🏊' },
+  { id: 3, title: 'Họa sĩ tài ba', task: 'Vẽ một bức tranh về gia đình', badge: '🎨' }
 ];
 
 const HANDBOOK_CONTENT = {
@@ -147,26 +220,192 @@ const HANDBOOK_CONTENT = {
 };
 
 // --- Companion Detail Component ---
-const CompanionDetail = ({ companion }: { companion: typeof COMPANIONS[0] }) => (
-  <div className="space-y-4">
-    <div className="flex items-center gap-4">
-      <img src={companion.img} className="w-20 h-20 rounded-full border-4 border-primary/20" alt={companion.name} referrerPolicy="no-referrer" />
+const CompanionDetail = ({ companion, onConfirm }: { companion: typeof COMPANIONS[0] & { service?: string }; onConfirm?: () => void }) => (
+  <div className="space-y-6">
+    <div className="flex items-center gap-6">
+      <div className="relative">
+        <img src={companion.img} className="w-24 h-24 rounded-full border-4 border-pro-green/20 object-cover" alt={companion.name} referrerPolicy="no-referrer" />
+        <div className="absolute -bottom-2 -right-2 bg-white p-2 rounded-full shadow-lg border-2 border-pro-green">
+           <Shield className="w-4 h-4 text-pro-green" />
+        </div>
+      </div>
       <div>
-        <h4 className="text-xl font-bold">{companion.name}</h4>
-        <p className="text-sm text-gray-500">{companion.school} • {companion.age} tuổi</p>
-        <div className="flex items-center gap-1 text-yellow-500 mt-1">
-          <Star className="w-4 h-4 fill-current" />
-          <span className="font-bold">{companion.rating}</span>
+        <h4 className="text-2xl font-black text-gray-900">{companion.name}</h4>
+        <p className="text-sm font-bold text-pro-green uppercase tracking-tighter">{companion.school}</p>
+        <div className="flex items-center gap-1 text-yellow-500 mt-2">
+          {[1, 2, 3, 4, 5].map(i => <Star key={i} className={`w-4 h-4 ${i <= Math.floor(companion.rating) ? 'fill-current' : ''}`} />)}
+          <span className="font-black text-gray-900 ml-2">{companion.rating}</span>
         </div>
       </div>
     </div>
-    <p className="text-sm text-gray-600 italic bg-gray-50 p-3 rounded-xl">"{companion.bio}"</p>
-    <div className="flex gap-2">
-      <span className="px-3 py-1 bg-blue-100 text-blue-600 text-[10px] font-bold rounded-full">ĐÃ XÁC MINH CCCD</span>
-      <span className="px-3 py-1 bg-green-100 text-green-600 text-[10px] font-bold rounded-full">ĐÃ QUA ĐÀO TẠO</span>
+    
+    <div className="grid grid-cols-2 gap-4">
+       <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+          <p className="text-[10px] text-gray-400 font-black uppercase">Độ tuổi</p>
+          <p className="font-bold text-gray-900">{companion.age} tuổi</p>
+       </div>
+       <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+          <p className="text-[10px] text-gray-400 font-black uppercase">Dịch vụ</p>
+          <p className="font-bold text-pro-green uppercase">{companion.service || 'Đồng hành'}</p>
+       </div>
     </div>
+
+    <div className="space-y-3">
+       <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Kỹ năng nổi bật</p>
+       <div className="flex flex-wrap gap-2">
+          {companion.skills.map(skill => (
+            <span key={skill} className="px-3 py-1 bg-pro-green/5 text-pro-green text-[10px] font-black rounded-full border border-pro-green/10">#{skill}</span>
+          ))}
+       </div>
+    </div>
+
+    <p className="text-sm text-gray-600 font-medium italic border-l-4 border-pro-green pl-4 py-2 bg-pro-green/5 rounded-r-2xl">
+      "{companion.bio}"
+    </p>
+
+    {onConfirm && (
+      <div className="pt-4 border-t border-gray-100 space-y-4">
+        <div className="flex justify-between items-center bg-gray-50 p-4 rounded-2xl">
+           <p className="font-bold text-gray-500">Giá tham khảo:</p>
+           <p className="text-2xl font-black text-gray-900">{PRICES.senior.toLocaleString()}đ/giờ</p>
+        </div>
+        <button 
+          onClick={onConfirm}
+          className="w-full bg-pro-green text-white py-6 rounded-[32px] font-black text-xl shadow-xl hover:bg-pro-green-dark transition-all active:scale-95 flex items-center justify-center gap-3"
+        >
+          XÁC NHẬN & ĐẶT LỊCH NGAY
+        </button>
+      </div>
+    )}
   </div>
 );
+
+const ChatSimulation = ({ onBack }: { onBack: () => void }) => {
+  const [messages, setMessages] = useState([
+    { role: 'companion', text: 'Chào bạn, mình đang trên đường đến. Bạn cần mình chuẩn bị thêm gì không?' }
+  ]);
+  const [input, setInput] = useState('');
+
+  const handleSend = () => {
+    if (!input.trim()) return;
+    setMessages([...messages, { role: 'user', text: input }]);
+    setInput('');
+    setTimeout(() => {
+      setMessages(prev => [...prev, { role: 'companion', text: 'Vâng ạ, mình đã nắm rõ. Hẹn gặp bạn sau ít phút nữa!' }]);
+    }, 1500);
+  };
+
+  return (
+    <div className="flex flex-col h-[500px]">
+      <div className="flex-1 overflow-y-auto space-y-4 p-2 scrollbar-hide">
+        {messages.map((m, i) => (
+          <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[80%] p-4 rounded-3xl font-medium ${m.role === 'user' ? 'bg-gray-900 text-white rounded-tr-none' : 'bg-gray-100 text-gray-800 rounded-tl-none'}`}>
+              {m.text}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="pt-6 flex gap-3">
+        <input 
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+          placeholder="Nhập tin nhắn..."
+          className="flex-1 bg-gray-100 border-none rounded-2xl px-6 font-medium focus:ring-2 focus:ring-pro-green"
+        />
+        <button onClick={handleSend} className="p-4 bg-pro-green text-white rounded-2xl shadow-lg shadow-pro-green/20 active:scale-95 transition-all">
+          <Send className="w-6 h-6" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const PaymentSimulation = ({ onComplete }: { onComplete: (method: string) => void }) => {
+  const [method, setMethod] = useState<'visa' | 'bank' | null>(null);
+  const [step, setStep] = useState(1);
+
+  if (step === 2) {
+    return (
+      <div className="text-center py-8 space-y-6">
+        <div className="w-24 h-24 border-8 border-pro-green border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="font-black text-2xl uppercase tracking-tighter text-pro-green">Đang xác thực giao dịch...</p>
+        <p className="text-gray-500 font-bold italic">Vui lòng không tắt ứng dụng</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8 p-2">
+      <p className="text-sm text-gray-500 font-black uppercase tracking-widest text-center border-b pb-4">Chọn phương thức thanh toán</p>
+      <div className="grid grid-cols-2 gap-6">
+        <button 
+          onClick={() => setMethod('visa')}
+          className={`p-8 rounded-[40px] border-4 transition-all flex flex-col items-center gap-3 shadow-sm ${method === 'visa' ? 'border-pro-green bg-pro-green/5' : 'border-gray-100 hover:border-gray-200'}`}
+        >
+          <div className={`p-4 rounded-2xl ${method === 'visa' ? 'bg-pro-green text-white' : 'bg-gray-100 text-gray-400'}`}>
+            <CreditCard className="w-10 h-10" />
+          </div>
+          <span className="font-black text-lg">THE VISA</span>
+        </button>
+        <button 
+          onClick={() => setMethod('bank')}
+          className={`p-8 rounded-[40px] border-4 transition-all flex flex-col items-center gap-3 shadow-sm ${method === 'bank' ? 'border-pro-green bg-pro-green/5' : 'border-gray-100 hover:border-gray-200'}`}
+        >
+          <div className={`p-4 rounded-2xl ${method === 'bank' ? 'bg-pro-green text-white' : 'bg-gray-100 text-gray-400'}`}>
+            <Building2 className="w-10 h-10" />
+          </div>
+          <span className="font-black text-lg">CHUYỂN KHOẢN</span>
+        </button>
+      </div>
+
+      {method === 'visa' && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-8 bg-gray-50 rounded-[40px] border-4 border-gray-100 space-y-4">
+          <div className="flex justify-between items-center">
+            <p className="text-xs font-black text-gray-400 uppercase">Thẻ đã lưu (Ưu tiên)</p>
+            <span className="px-3 py-1 bg-green-100 text-green-600 text-[8px] font-black rounded-full">SECURE</span>
+          </div>
+          <div className="flex justify-between items-center p-4 bg-white rounded-3xl border-2 border-pro-green">
+             <div className="flex items-center gap-4">
+               <div className="w-12 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-[10px] text-white font-black">VISA</div>
+               <p className="font-black text-xl tracking-tighter">**** **** **** 8888</p>
+             </div>
+             <CheckCircle2 className="text-pro-green w-8 h-8" />
+          </div>
+          <p className="text-[10px] text-gray-400 italic font-bold">Thanh toán 1 chạm an toàn qua LinkHeart Secure Hub.</p>
+        </motion.div>
+      )}
+
+      {method === 'bank' && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-8 bg-blue-50 rounded-[40px] border-4 border-dashed border-blue-200 text-center space-y-6">
+          <p className="font-black text-2xl text-blue-800 uppercase tracking-tight">Quét mã QR Napas 24/7</p>
+          <div className="w-48 h-48 bg-white mx-auto flex items-center justify-center border-8 border-white shadow-2xl rounded-3xl relative overflow-hidden">
+             <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=LinkHeartPayment" className="w-full h-full p-2" alt="QR" />
+             <div className="absolute inset-0 flex items-center justify-center opacity-10">
+               <Zap className="w-32 h-32 text-blue-800" />
+             </div>
+          </div>
+          <div className="bg-white/50 p-4 rounded-2xl">
+             <p className="text-xs text-blue-600 font-black uppercase tracking-widest mb-1">Vietcombank • 1022334455</p>
+             <p className="text-sm text-gray-900 font-bold uppercase">LINKHEART GLOBAL TECHNOLOGY</p>
+          </div>
+        </motion.div>
+      )}
+
+      <button 
+        disabled={!method}
+        onClick={() => {
+          setStep(2);
+          setTimeout(() => onComplete(method!), 2500);
+        }}
+        className="w-full bg-gray-900 text-white py-10 rounded-[64px] font-black text-3xl shadow-2xl disabled:opacity-30 disabled:grayscale hover:bg-black transition-all active:scale-95"
+      >
+        TIẾP TỤC
+      </button>
+    </div>
+  );
+};
 
 // --- Simulation Modal ---
 const SimulationModal = ({ 
@@ -318,7 +557,7 @@ const KidsMode = ({ onBack }: { onBack: () => void }) => {
   const [activeView, setActiveView] = useState<'home' | 'footer-page' | 'tracking'>('home');
   const [footerPage, setFooterPage] = useState<{ title: string; content: string } | null>(null);
   const [activeCompanion, setActiveCompanion] = useState<Companion | null>(null);
-  const [modal, setModal] = useState<{ open: boolean; title: string; content: string; type: any; data?: any }>({
+  const [modal, setModal] = useState<{ open: boolean; title: string; content: React.ReactNode; type: any; data?: any }>({
     open: false,
     title: '',
     content: '',
@@ -331,7 +570,7 @@ const KidsMode = ({ onBack }: { onBack: () => void }) => {
     setTimeout(() => setToast({ show: false, msg: '' }), 3000);
   };
 
-  const showSimulation = (title: string, content: string, type: any = 'success', data?: any) => {
+  const showSimulation = (title: string, content: React.ReactNode, type: any = 'success', data?: any) => {
     setModal({ open: true, title, content, type, data });
   };
 
@@ -528,24 +767,71 @@ const KidsMode = ({ onBack }: { onBack: () => void }) => {
                     ))}
                   </div>
                 </div>
-                <div className="bg-kids-orange/10 p-8 rounded-[40px] border-4 border-kids-orange/20 cursor-pointer hover:bg-kids-orange/20 transition-colors" onClick={() => showToast('Góc an toàn cho bé yêu!')}>
+                <div className="bg-kids-orange/10 p-8 rounded-[40px] border-4 border-kids-orange/20 cursor-pointer hover:bg-kids-orange/20 transition-colors" onClick={() => showToast('Gói an toàn cho bé yêu!')}>
                   <h3 className="text-3xl font-black text-kids-orange mb-6 flex items-center gap-3">
-                    <Shield className="w-10 h-10" /> Góc an toàn cho bé
+                    <Shield className="w-10 h-10" /> Bảo vệ chủ động
                   </h3>
-                  <div className="space-y-4">
-                    <p className="text-gray-600 font-bold">Bé hãy nhớ 3 quy tắc vàng nhé:</p>
-                    <ul className="space-y-3">
-                      <li className="flex items-center gap-3 text-sm font-bold"><CheckCircle2 className="text-green-500" /> Luôn đi cùng anh chị Companion</li>
-                      <li className="flex items-center gap-3 text-sm font-bold"><CheckCircle2 className="text-green-500" /> Không nhận quà từ người lạ</li>
-                      <li className="flex items-center gap-3 text-sm font-bold"><CheckCircle2 className="text-green-500" /> Gọi bố mẹ ngay khi cần</li>
-                    </ul>
+                  <div className="grid grid-cols-2 gap-4">
                     <button 
-                      onClick={(e) => { e.stopPropagation(); showHandbook(); }}
-                      className="w-full bg-white text-kids-orange py-3 rounded-2xl font-black border-2 border-kids-orange hover:bg-kids-orange hover:text-white transition-all"
+                      onClick={(e) => { e.stopPropagation(); showSimulation('QR Check-in', 'Hệ thống yêu cầu quét mã QR bảo mật từ Companion để xác nhận ca làm việc bắt đầu.', 'info'); }}
+                      className="bg-white p-6 rounded-3xl flex flex-col items-center gap-3 shadow-md hover:scale-105 transition-all text-gray-700"
                     >
-                      XEM CẨM NANG
+                      <Zap className="w-8 h-8 text-kids-orange" />
+                      <span className="font-black text-xs uppercase">Mã QR Bảo Mật</span>
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); showSimulation('Safe-Word', 'Bé đã kích hoạt mật mã an toàn! Hệ thống đã gửi thông báo khẩn cấp (Alarm Red) cho bố mẹ ngay lập tức!', 'danger'); }}
+                      className="bg-red-100 p-6 rounded-3xl flex flex-col items-center gap-3 shadow-md border-4 border-red-500 hover:scale-105 transition-all text-red-600"
+                    >
+                      <Mic className="w-8 h-8" />
+                      <span className="font-black text-xs uppercase">Nút "Safe-Word"</span>
                     </button>
                   </div>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); showHandbook(); }}
+                    className="w-full mt-4 bg-white text-kids-orange py-3 rounded-2xl font-black border-2 border-kids-orange hover:bg-kids-orange hover:text-white transition-all"
+                  >
+                    XEM CẨM NANG
+                  </button>
+                </div>
+              </div>
+
+              {/* Học mà chơi - Gamified Learning (Page 2) */}
+              <div className="mb-20">
+                <div className="flex items-center justify-between mb-8">
+                  <h2 className="text-4xl font-black text-kids-orange flex items-center gap-4">
+                    <Award className="w-12 h-12" /> Học mà chơi - Thử thách ngày
+                  </h2>
+                  <span className="px-6 py-2 bg-kids-orange text-white rounded-full font-black text-lg">
+                    GEMS: 1,250 💎
+                  </span>
+                </div>
+                <div className="grid md:grid-cols-3 gap-8">
+                  {KIDS_MISSIONS.map((mission) => (
+                    <motion.div 
+                      key={mission.id}
+                      whileHover={{ scale: 1.05 }}
+                      className="p-8 bg-white rounded-[40px] border-4 border-dashed border-kids-orange/30 relative overflow-hidden group cursor-pointer"
+                      onClick={() => showSimulation(mission.title, `Bạn đang bắt đầu nhiệm vụ: ${mission.task}. Hãy cùng Companion hoàn thành để nhận huy hiệu ${mission.badge} nhé!`, 'success')}
+                    >
+                      <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <span className="text-8xl">{mission.badge}</span>
+                      </div>
+                      <span className="inline-block px-3 py-1 bg-kids-orange/10 text-kids-orange rounded-lg text-xs font-black mb-4 uppercase">
+                        Cấp độ: Dễ
+                      </span>
+                      <h4 className="text-2xl font-black mb-2">{mission.title}</h4>
+                      <p className="text-gray-500 font-bold mb-6">{mission.task}</p>
+                      <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden">
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: mission.id === 1 ? '70%' : '10%' }}
+                          className="h-full bg-kids-orange"
+                        />
+                      </div>
+                      <p className="text-right text-xs font-black text-kids-orange mt-2">TIẾN ĐỘ: {mission.id === 1 ? '70' : '10'}%</p>
+                    </motion.div>
+                  ))}
                 </div>
               </div>
             </motion.div>
@@ -611,13 +897,41 @@ const KidsMode = ({ onBack }: { onBack: () => void }) => {
           )}
         </AnimatePresence>
       </main>
+
+      <SimulationModal 
+        isOpen={modal.open} 
+        onClose={() => setModal({ ...modal, open: false })} 
+        title={modal.title}
+        type={modal.type}
+      >
+        {modal.data?.chat ? <ChatSimulation onBack={() => setModal({ ...modal, open: false })} /> : (
+          modal.data?.handbook ? (
+            <div className="space-y-6">
+              {modal.data.handbook.map((h: any, i: number) => (
+                <div key={i} className="p-6 bg-gray-50 rounded-3xl border-4 border-gray-200">
+                  <h4 className="text-2xl font-black mb-2 uppercase tracking-tight">{h.title}</h4>
+                  <p className="text-lg font-bold text-gray-600">{h.content}</p>
+                </div>
+              ))}
+            </div>
+          ) : modal.type === 'companion' ? <CompanionDetail companion={modal.data} onConfirm={() => {
+             setActiveCompanion(modal.data);
+             setActiveView('tracking');
+             setModal({ ...modal, open: false });
+             showToast('Đã kết nối với anh/chị companion!');
+          }} /> : 
+          modal.content || <p className="text-gray-600 font-medium italic">Tính năng này đang được phát triển.</p>
+        )}
+      </SimulationModal>
+
+      <Toast message={toast.msg} isVisible={toast.show} onClose={() => setToast({ show: false, msg: '' })} />
       <Footer theme="kids" onToast={renderFooterPage} />
     </div>
   );
 };
 
 // --- Pro Mode ---
-const ProMode = ({ onBack, walletBalance, setWalletBalance }: { onBack: () => void, walletBalance: number, setWalletBalance: (v: number) => void }) => {
+const ProMode = ({ onBack, walletBalance, setWalletBalance }: { onBack: () => void, walletBalance: number, setWalletBalance: React.Dispatch<React.SetStateAction<number>> }) => {
   const [activeView, setActiveView] = useState<ProView>('home');
   const [footerPage, setFooterPage] = useState<{ title: string; content: string } | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([
@@ -625,7 +939,7 @@ const ProMode = ({ onBack, walletBalance, setWalletBalance }: { onBack: () => vo
   ]);
   const [activeAppointment, setActiveAppointment] = useState<Appointment | null>(null);
   
-  const [modal, setModal] = useState<{ open: boolean; title: string; content: string; type: any; data?: any }>({
+  const [modal, setModal] = useState<{ open: boolean; title: string; content: React.ReactNode; type: any; data?: any }>({
     open: false,
     title: '',
     content: '',
@@ -633,7 +947,7 @@ const ProMode = ({ onBack, walletBalance, setWalletBalance }: { onBack: () => vo
   });
   const [toast, setToast] = useState({ show: false, msg: '' });
 
-  const showSimulation = (title: string, content: string = '', type: any = 'success', data?: any) => {
+  const showSimulation = (title: string, content: React.ReactNode = '', type: any = 'success', data?: any) => {
     setModal({ open: true, title, content, type, data });
   };
 
@@ -857,120 +1171,168 @@ const ProMode = ({ onBack, walletBalance, setWalletBalance }: { onBack: () => vo
             >
               <div className="mb-12 flex justify-between items-end">
                 <div>
-                  <h1 className="text-4xl font-bold text-gray-900 mb-2">Chào buổi sáng, Minh</h1>
-                  <p className="text-gray-500">Hôm nay bạn muốn đặt dịch vụ gì cho mình hay người thân?</p>
+                  <h1 className="text-4xl font-black text-gray-900 mb-2 leading-tight uppercase">Bảng điều khiển <br /> Master Dashboard</h1>
+                  <p className="text-gray-500 font-medium italic">"Mọi thành viên trong tầm mắt, mọi hành trình trọn niềm tin"</p>
                 </div>
                 <div className="flex gap-4">
                   <div className="text-right">
-                    <p className="text-xs text-gray-400 font-bold uppercase">Số dư ví</p>
-                    <p className="text-xl font-bold text-pro-green">{walletBalance.toLocaleString()}đ</p>
+                    <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Ví Gia Đình</p>
+                    <p className="text-3xl font-black text-pro-green">{walletBalance.toLocaleString()}đ</p>
                   </div>
                   <button 
-                    onClick={() => showSimulation('Nạp tiền vào ví', '', 'info')}
-                    className="w-10 h-10 bg-pro-green text-white rounded-full flex items-center justify-center shadow-lg shadow-pro-green/20 active:scale-90 transition-transform"
+                    onClick={() => showSimulation('Nạp tiền vào ví', <PaymentSimulation onComplete={(m) => {
+                      setWalletBalance(prev => prev + 500000);
+                      showSimulation('Nạp tiền thành công', `Bạn đã nạp thành công 500.000đ qua ${m === 'visa' ? 'thẻ Visa' : 'Chuyển khoản'}. Số dư mới: ${(walletBalance + 500000).toLocaleString()}đ`, 'success');
+                    }} />, 'info')}
+                    className="w-12 h-12 bg-white border-4 border-pro-green text-pro-green rounded-full flex items-center justify-center shadow-[4px_4px_0_0_rgba(45,106,79,1)] active:translate-y-1 active:shadow-none transition-all font-black text-2xl"
                   >
                     +
                   </button>
                 </div>
               </div>
 
-              <div className="grid lg:grid-cols-3 gap-8">
+              <div className="grid lg:grid-cols-3 gap-8 mb-12">
                 <div className="lg:col-span-2 space-y-8">
-                  <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+                  {/* Hobby Matching / Social Section (Page 4) */}
+                  <div className="bg-white p-8 rounded-[48px] shadow-sm border-2 border-gray-100">
                     <div className="flex justify-between items-center mb-8">
-                      <h3 className="text-lg font-bold flex items-center gap-2">
-                        <Activity className="w-5 h-5 text-pro-green" />
-                        Dịch vụ đề xuất
+                      <h3 className="text-xl font-black flex items-center gap-3 uppercase tracking-tight">
+                        <Users className="w-6 h-6 text-pro-green" />
+                        Kết nối sở thích (Hobby Matching)
                       </h3>
-                      <button onClick={() => showToast('Đang tải danh sách dịch vụ...')} className="text-xs font-bold text-pro-green hover:underline">Xem tất cả</button>
+                      <span className="text-xs font-black text-pro-green bg-pro-green/10 px-3 py-1 rounded-full uppercase">Mới</span>
                     </div>
-                    <div className="grid md:grid-cols-2 gap-4">
+                    <div className="grid md:grid-cols-2 gap-6">
                       {[
-                        { title: 'Bạn tập Gym', icon: <Dumbbell />, desc: 'Tìm người cùng tập luyện' },
-                        { title: 'Đồng hành du lịch', icon: <Plane />, desc: 'Lên kế hoạch & đi cùng' },
-                        { title: 'Gói Hiếu Thảo', icon: <Heart />, desc: 'Đặt lịch cho cha mẹ' },
-                        { title: 'Báo cáo sức khỏe', icon: <FileText />, desc: 'Xem tình hình người thân' }
+                        { title: 'Cùng tập Gym', time: '6:00 AM', icon: <Dumbbell className="w-5 h-5 text-gray-600" />, desc: 'Tìm người cùng lịch tập luyện' },
+                        { title: 'Triển lãm nghệ thuật', time: 'Cuối tuần', icon: <Plane className="w-5 h-5 text-gray-600" />, desc: 'Thảo luận về startup/kinh doanh' }
                       ].map((item, i) => (
-                        <motion.button 
-                          key={i} 
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => showRandomCompanion(item.title)}
-                          className="p-6 rounded-2xl border border-gray-50 bg-gray-50/50 hover:bg-white hover:shadow-xl transition-all text-left group"
-                        >
-                          <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center mb-4 shadow-sm group-hover:bg-pro-green group-hover:text-white transition-colors">
-                            {item.icon}
+                        <div key={i} className="p-6 rounded-3xl border-2 border-gray-50 bg-gray-50/50 hover:bg-white hover:border-pro-green hover:shadow-xl transition-all cursor-pointer group">
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center group-hover:bg-pro-green group-hover:text-white transition-colors">{item.icon}</div>
+                            <span className="text-[10px] font-black uppercase text-gray-400">{item.time}</span>
                           </div>
-                          <h4 className="font-bold text-gray-800">{item.title}</h4>
-                          <p className="text-xs text-gray-500 mt-1">{item.desc}</p>
-                        </motion.button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-                    <h3 className="text-lg font-bold mb-6">Hành trình đang diễn ra</h3>
-                    <div className="space-y-4">
-                      {appointments.filter(a => a.status === 'active').map(appt => (
-                        <div key={appt.id} className="p-6 rounded-2xl bg-pro-green/5 border border-pro-green/10 flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="relative">
-                              <img src={appt.companion.img} className="w-14 h-14 rounded-full object-cover border-2 border-pro-green" alt="Comp" referrerPolicy="no-referrer" />
-                              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white animate-pulse" />
-                            </div>
-                            <div>
-                              <p className="font-bold text-gray-900">{appt.service} - {appt.companion.name}</p>
-                              <p className="text-xs text-gray-500">Vị trí: {appt.location} • {appt.time}</p>
-                            </div>
-                          </div>
-                          <button 
-                            onClick={() => startTracking(appt)}
-                            className="bg-white text-pro-green px-4 py-2 rounded-xl text-sm font-bold shadow-sm hover:shadow-md transition-all"
-                          >
-                            Theo dõi Live
+                          <h4 className="font-black text-gray-800 text-lg">{item.title}</h4>
+                          <p className="text-sm text-gray-500 mt-2">{item.desc}</p>
+                          <button onClick={() => showSimulation(item.title, `Hệ thống đang bóc tách từ khóa và lọc Companion có cùng sở thích ${item.title}...`, 'loading')} className="mt-4 text-xs font-black text-pro-green uppercase flex items-center gap-2">
+                             Tìm người đi cùng <ArrowRight className="w-4 h-4" />
                           </button>
                         </div>
                       ))}
                     </div>
                   </div>
-                </div>
 
-                <div className="space-y-8">
-                  <motion.div 
-                    whileHover={{ y: -5 }}
-                    className="bg-pro-green text-white p-8 rounded-[40px] shadow-2xl relative overflow-hidden group"
-                  >
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700" />
-                    <h3 className="text-2xl font-bold mb-4">Gói Hiếu Thảo</h3>
-                    <p className="text-sm text-pro-white/80 mb-8 leading-relaxed">
-                      Chăm sóc cha mẹ từ xa chưa bao giờ dễ dàng đến thế. Đặt lịch ngay, thông tin sẽ tự động đồng bộ.
-                    </p>
-                    <button 
-                      onClick={() => showRandomCompanion('Gói Hiếu Thảo')}
-                      className="w-full bg-white text-pro-green py-4 rounded-2xl font-bold hover:bg-pro-white active:scale-95 transition-all"
-                    >
-                      Đặt lịch cho cha mẹ
-                    </button>
-                  </motion.div>
-
-                  <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-                    <h3 className="text-lg font-bold mb-6">Thông báo</h3>
+                  {/* Master Dashboard (Family Monitoring) */}
+                  <div className="bg-gray-900 p-8 rounded-[48px] text-white shadow-2xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-8 opacity-20">
+                      <LayoutDashboard className="w-24 h-24" />
+                    </div>
+                    <h3 className="text-xl font-black mb-8 uppercase tracking-widest flex items-center gap-3">
+                      <Navigation className="w-6 h-6 text-pro-green animate-pulse" />
+                      Giám sát gia đình (Real-time GPS)
+                    </h3>
                     <div className="space-y-6">
-                      {[
-                        { text: 'Minh Anh đã bắt đầu hành trình cùng Bác Ba', time: '5 phút trước' },
-                        { text: 'Hóa đơn dịch vụ #LH-992 đã được thanh toán', time: '2 giờ trước' }
-                      ].map((n, i) => (
-                        <div key={i} className="flex gap-4 items-start cursor-pointer group" onClick={() => showToast('Chi tiết thông báo')}>
-                          <div className="w-2 h-2 bg-pro-green rounded-full mt-2 shrink-0 group-hover:scale-150 transition-transform" />
-                          <div>
-                            <p className="text-sm text-gray-800 leading-snug group-hover:text-pro-green transition-colors">{n.text}</p>
-                            <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">{n.time}</p>
-                          </div>
-                        </div>
-                      ))}
+                       <div className="p-6 rounded-3xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-between">
+                         <div className="flex items-center gap-4">
+                           <div className="w-12 h-12 rounded-full border-2 border-primary overflow-hidden">
+                              <img src="https://picsum.photos/seed/mom/100/100" className="object-cover" alt="Mom" referrerPolicy="no-referrer" />
+                           </div>
+                           <div>
+                              <p className="font-black text-lg">Mẹ Lan (Senior Mode)</p>
+                              <p className="text-xs text-pro-white/60 uppercase font-bold tracking-tighter italic">"Đang đi dạo • CV Cầu Giấy"</p>
+                           </div>
+                         </div>
+                         <button onClick={() => setActiveView('tracking')} className="bg-white text-gray-900 px-6 py-2 rounded-full font-black text-xs hover:bg-pro-green hover:text-white transition-colors">
+                           XEM LIVE
+                         </button>
+                       </div>
+                       <div className="p-6 rounded-3xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-between">
+                         <div className="flex items-center gap-4">
+                           <div className="w-12 h-12 rounded-full border-2 border-kids-orange overflow-hidden">
+                              <img src="https://picsum.photos/seed/kid/100/100" className="object-cover" alt="Kid" referrerPolicy="no-referrer" />
+                           </div>
+                           <div>
+                              <p className="font-black text-lg">Bé Bo (Kids Mode)</p>
+                              <p className="text-xs text-pro-white/60 uppercase font-bold tracking-tighter italic">"Đang học toán • Tại nhà"</p>
+                           </div>
+                         </div>
+                         <button onClick={() => showToast('Mở Camera nhà riêng...')} className="bg-white text-gray-900 px-6 py-2 rounded-full font-black text-xs hover:bg-pro-green hover:text-white transition-colors">
+                           XEM CAMERA
+                         </button>
+                       </div>
                     </div>
                   </div>
                 </div>
+
+                <div className="space-y-8">
+                  {/* Analysis Report (Page 4) */}
+                  <div className="bg-white p-8 rounded-[48px] shadow-sm border-2 border-gray-100 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-pro-green/5 rounded-full -mr-16 -mt-16" />
+                    <h3 className="text-xl font-black mb-6 uppercase tracking-tight flex items-center gap-3">
+                       <Activity className="w-6 h-6 text-pro-green" />
+                       Báo cáo phân tích
+                    </h3>
+                    <div className="space-y-4">
+                       <p className="text-sm font-bold text-gray-600 leading-relaxed italic">
+                         "Tháng này Mẹ đã đi dạo 20 giờ (tăng 5 giờ so với tháng trước), tâm trạng cải thiện rõ rệt."
+                       </p>
+                       <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                          <motion.div 
+                            initial={{ width: 0 }}
+                            animate={{ width: '80%' }}
+                            className="bg-pro-green h-full"
+                          />
+                       </div>
+                       <p className="text-[10px] font-black text-pro-green uppercase">Chỉ số hạnh phúc: 8.5/10</p>
+                       <button onClick={() => showSimulation('Báo cáo nhịp tim', 'Đang tải báo cáo sức khỏe chi tiết của Bố trong tuần qua...', 'loading')} className="w-full mt-4 bg-gray-900 text-white py-4 rounded-3xl font-black text-xs uppercase tracking-widest shadow-xl">
+                          Chi tiết sức khỏe
+                       </button>
+                    </div>
+                  </div>
+
+                  {/* Hieu Thao Packages (Page 7) */}
+                  <div className="bg-primary/5 p-8 rounded-[48px] border-4 border-dashed border-primary/20">
+                    <h3 className="text-xl font-black mb-6 uppercase tracking-tight text-primary flex items-center gap-3">
+                       <Heart className="w-6 h-6" /> Gói Hiếu Thảo
+                    </h3>
+                    <div className="space-y-4">
+                       {HIEU_THAO_PACKAGES.map((pkg) => (
+                         <div key={pkg.id} className="p-4 bg-white rounded-3xl border border-primary/10 shadow-sm hover:border-primary transition-all cursor-pointer group" onClick={() => showSimulation(pkg.title, `Hệ thống tự động gia hạn ${pkg.title} hàng tuần cho cha mẹ bạn.`, 'success')}>
+                            <div className="flex justify-between items-center mb-1">
+                               <p className="font-black text-sm uppercase">{pkg.title}</p>
+                               <p className="font-black text-primary text-xs tracking-widest">{pkg.price.toLocaleString()}đ</p>
+                            </div>
+                            <p className="text-[10px] text-gray-500 font-bold italic line-clamp-1">{pkg.desc}</p>
+                         </div>
+                       ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Booking & Filter Specs (Page 4) */}
+              <div className="mb-20">
+                 <h2 className="text-4xl font-black text-gray-900 mb-8 uppercase tracking-widest text-center">Đồng hành mới</h2>
+                 <div className="grid md:grid-cols-4 gap-6">
+                    {[
+                      { title: 'LinkHeart Kids', price: '149.000đ/giờ', theme: 'text-kids-orange bg-kids-orange/5', desc: 'Dạy vẽ, Tiếng Anh...' },
+                      { title: 'LinkHeart Social', price: '119.000đ/giờ', theme: 'text-pro-green bg-pro-green/5', desc: 'Gym, Cafe, Xem phim...' },
+                      { title: 'LinkHeart Senior', price: '179.000đ/giờ', theme: 'text-primary bg-primary/5', desc: 'Sơ cứu, Gọi điện bác sĩ...' },
+                      { title: 'Phỏng vấn Video', price: 'Miễn phí', theme: 'text-blue-500 bg-blue-50', desc: 'Phỏng vấn trực tiếp Companion' }
+                    ].map((svc, i) => (
+                      <motion.div 
+                        key={i}
+                        whileHover={{ y: -10 }}
+                        className={`p-8 rounded-[40px] border-4 border-transparent hover:border-current transition-all cursor-pointer ${svc.theme}`}
+                        onClick={() => showRandomCompanion(svc.title)}
+                      >
+                         <h4 className="font-black text-xl mb-2">{svc.title}</h4>
+                         <p className="text-xl font-black mb-4">{svc.price}</p>
+                         <p className="text-xs font-bold opacity-70 italic">{svc.desc}</p>
+                         <ArrowRight className="w-6 h-6 mt-6 ml-auto" />
+                      </motion.div>
+                    ))}
+                 </div>
               </div>
             </motion.div>
           )}
@@ -1094,8 +1456,11 @@ const ProMode = ({ onBack, walletBalance, setWalletBalance }: { onBack: () => vo
                     </div>
                   </div>
                   <button 
-                    onClick={() => showSimulation('Nạp tiền vào ví', '', 'info')}
-                    className="w-full bg-pro-green text-white py-5 rounded-3xl font-bold text-lg shadow-lg shadow-pro-green/20 flex items-center justify-center gap-3"
+                    onClick={() => showSimulation('Nạp tiền vào ví', <PaymentSimulation onComplete={(m) => {
+                      setWalletBalance(prev => prev + 500000);
+                      showSimulation('Nạp tiền thành công', `Bạn đã nạp thành công 500.000đ qua ${m === 'visa' ? 'thẻ Visa' : 'Chuyển khoản'}. Số dư mới: ${(walletBalance + 500000).toLocaleString()}đ`, 'success');
+                    }} />, 'info')}
+                    className="w-full bg-pro-green text-white py-5 rounded-3xl font-bold text-lg shadow-lg shadow-pro-green/20 flex items-center justify-center gap-3 active:scale-95 transition-all"
                   >
                     <CreditCard className="w-6 h-6" /> NẠP TIỀN NGAY
                   </button>
@@ -1229,7 +1594,7 @@ const ProMode = ({ onBack, walletBalance, setWalletBalance }: { onBack: () => vo
               <h2 className="text-5xl font-black mb-8 text-gray-900">{footerPage.title}</h2>
               <div className="prose prose-lg text-gray-600 leading-relaxed space-y-6">
                 <p className="text-xl font-medium text-gray-800">{footerPage.content}</p>
-                <p>Tại LinkHeart, chúng tôi tin rằng công nghệ chỉ thực sự có giá trị khi nó phục vụ trái tim con người. Mỗi dòng code, mỗi tính năng đều được xây dựng with sự tỉ mỉ và tâm huyết cao nhất để đảm bảo an toàn cho người dùng.</p>
+                <p>Tại LinkHeart, chúng tôi tin rằng công nghệ chỉ thực sự có giá trị khi nó phục vụ trái tim con người. Mỗi dòng code, mỗi tính năng đều được xây dựng với sự tỉ mỉ và tâm huyết cao nhất để đảm bảo an toàn cho người dùng.</p>
                 <div className="grid grid-cols-2 gap-8 mt-12">
                   <img src="https://picsum.photos/seed/about1/400/300" className="rounded-3xl shadow-xl" alt="About 1" referrerPolicy="no-referrer" />
                   <img src="https://picsum.photos/seed/about2/400/300" className="rounded-3xl shadow-xl" alt="About 2" referrerPolicy="no-referrer" />
@@ -1239,6 +1604,33 @@ const ProMode = ({ onBack, walletBalance, setWalletBalance }: { onBack: () => vo
           )}
         </AnimatePresence>
       </main>
+
+      <SimulationModal 
+        isOpen={modal.open} 
+        onClose={() => setModal({ ...modal, open: false })} 
+        title={modal.title}
+        type={modal.type}
+      >
+        {modal.data?.chat ? <ChatSimulation onBack={() => setModal({ ...modal, open: false })} /> : (
+          modal.type === 'companion' ? <CompanionDetail companion={modal.data} onConfirm={() => {
+            const newAppt: Appointment = {
+              id: `LH-${Math.floor(Math.random() * 900) + 100}`,
+              service: modal.data.service || 'Đồng hành',
+              companion: modal.data,
+              status: 'pending',
+              time: 'Hôm nay, 14:00 - 16:00',
+              location: 'Tại nhà'
+            };
+            setAppointments([...appointments, newAppt]);
+            setModal({ ...modal, open: false });
+            showSimulation('Đặt lịch thành công', 'Companion sẽ liên hệ với bạn trong giây lát.', 'success');
+            setTimeout(() => startTracking(newAppt), 3000);
+          }} /> : 
+          modal.content || <p className="text-gray-600 font-medium">Đang xử lý yêu cầu của bạn...</p>
+        )}
+      </SimulationModal>
+
+      <Toast message={toast.msg} isVisible={toast.show} onClose={() => setToast({ show: false, msg: '' })} />
       <Footer theme="pro" onToast={renderFooterPage} />
     </div>
   );
@@ -1250,6 +1642,7 @@ const ElderlyMode = ({ onBack }: { onBack: () => void }) => {
   const [footerPage, setFooterPage] = useState<{ title: string; content: string } | null>(null);
   const [activeCompanion, setActiveCompanion] = useState<Companion | null>(null);
   const [isListening, setIsListening] = useState(false);
+  const [highContrast, setHighContrast] = useState(false);
   const [toast, setToast] = useState({ show: false, msg: '' });
   const [modal, setModal] = useState<{ open: boolean; title: string; content: string; type: any; data?: any }>({
     open: false,
@@ -1259,16 +1652,25 @@ const ElderlyMode = ({ onBack }: { onBack: () => void }) => {
   });
 
   const triggerAction = (title: string, content: string, type: any = 'success', data?: any) => {
+    if ('vibrate' in navigator) navigator.vibrate(50);
     setModal({ open: true, title, content, type, data });
-  };
-
-  const showHandbook = () => {
-    triggerAction('Cẩm nang an toàn', '', 'info', { handbook: HANDBOOK_CONTENT.elderly });
   };
 
   const showToast = (msg: string) => {
     setToast({ show: true, msg });
     setTimeout(() => setToast({ show: false, msg: '' }), 3000);
+  };
+
+  const handleVoiceAssistant = () => {
+    setIsListening(true);
+    setTimeout(() => {
+      setIsListening(false);
+      triggerAction('Trợ lý Linky', 'Linky đã hiểu: Bác muốn tìm người đi dạo vào 4h chiều nay. Đang kết nối với 3 Companion phù hợp nhất...', 'loading');
+      setTimeout(() => {
+        const seniorComp = COMPANIONS[3]; 
+        triggerAction('Đã đặt thành công!', 'Cháu Hiếu sẽ đến đón bác vào 4h chiều nay nhé. Bác nhớ mang theo áo khoác ạ!', 'companion', seniorComp);
+      }, 3000);
+    }, 2500);
   };
 
   const renderFooterPage = (title: string) => {
@@ -1289,16 +1691,11 @@ const ElderlyMode = ({ onBack }: { onBack: () => void }) => {
   };
 
   const triggerSOS = () => {
-    setModal({ 
-      open: true, 
-      title: 'CẢNH BÁO KHẨN CẤP', 
-      content: 'Đang kết nối với đội cứu hộ và thông báo cho người thân của bác. Vui lòng giữ bình tĩnh!', 
-      type: 'emergency' 
-    });
+    triggerAction('KHẨN CẤP SOS', 'Hệ thống đang kết nối trực tiếp với bác sĩ gia đình và gửi vị trí của bác cho con cái ngay lập tức!', 'danger');
   };
 
   return (
-    <div className="theme-elderly min-h-screen flex flex-col">
+    <div className={`theme-elderly min-h-screen flex flex-col ${highContrast ? 'high-contrast' : ''}`}>
       <Toast message={toast.msg} isVisible={toast.show} onClose={() => setToast({ ...toast, show: false })} />
       <SimulationModal 
         isOpen={modal.open} 
@@ -1307,28 +1704,20 @@ const ElderlyMode = ({ onBack }: { onBack: () => void }) => {
         type={modal.type}
       >
         <div className="text-center space-y-6">
-          {modal.type === 'emergency' ? (
-            <div className="py-4">
-              <div className="w-24 h-24 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
-                <Shield className="w-12 h-12" />
-              </div>
-              <p className="text-xl font-black text-red-600 mb-4 uppercase">Đang gọi cấp cứu...</p>
-              <p className="text-gray-700 font-bold leading-relaxed">{modal.content}</p>
-              <div className="mt-8 flex gap-4">
-                <button 
-                  onClick={() => setModal({ ...modal, open: false })}
-                  className="flex-1 bg-gray-200 text-gray-800 py-6 rounded-3xl font-black text-xl border-4 border-gray-900"
-                >
-                  HỦY
-                </button>
-                <button className="flex-1 bg-red-600 text-white py-6 rounded-3xl font-black text-xl border-4 border-gray-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                  GỌI NGAY
-                </button>
-              </div>
+          {modal.type === 'loading' ? (
+            <div className="py-12">
+              <div className="w-24 h-24 border-8 border-gray-900 border-t-transparent rounded-full animate-spin mx-auto mb-6" />
+              <p className="text-3xl font-black">{modal.title}</p>
             </div>
           ) : modal.type === 'companion' ? (
             <div className="text-left">
-              <CompanionDetail companion={modal.data} />
+              <div className="flex items-center gap-6 mb-8">
+                 <img src={modal.data.img} className="w-32 h-32 rounded-[32px] border-4 border-gray-900 shadow-lg object-cover" alt="Comp" referrerPolicy="no-referrer" />
+                 <div>
+                    <h4 className="text-4xl font-black">{modal.data.name}</h4>
+                    <p className="text-2xl font-bold opacity-70 italic text-gray-600">Companion của bác</p>
+                 </div>
+              </div>
               <button 
                 onClick={() => {
                   setActiveCompanion(modal.data);
@@ -1336,7 +1725,7 @@ const ElderlyMode = ({ onBack }: { onBack: () => void }) => {
                   setActiveView('tracking');
                   showToast(`Đã bắt đầu hành trình cùng cháu ${modal.data.name}!`);
                 }}
-                className="w-full mt-6 bg-gray-900 text-white py-6 rounded-[32px] font-black text-2xl shadow-[8px_8px_0px_0px_#E85D75]"
+                className="w-full bg-gray-900 text-white py-8 rounded-[40px] font-black text-3xl shadow-xl active:scale-95 transition-transform"
               >
                 CHỌN CHÁU NÀY
               </button>
@@ -1344,27 +1733,27 @@ const ElderlyMode = ({ onBack }: { onBack: () => void }) => {
           ) : modal.data?.handbook ? (
             <div className="text-left space-y-4">
               {modal.data.handbook.map((item: any, i: number) => (
-                <div key={i} className="p-6 bg-yellow-50 rounded-[32px] border-4 border-gray-900">
+                <div key={i} className="p-6 bg-yellow-100 rounded-[32px] border-4 border-gray-900">
                   <h4 className="font-black text-2xl mb-2 uppercase">{item.title}</h4>
-                  <p className="text-lg font-bold text-gray-700">{item.content}</p>
+                  <p className="text-xl font-bold text-gray-800">{item.content}</p>
                 </div>
               ))}
               <button 
                 onClick={() => setModal({ ...modal, open: false })}
-                className="w-full bg-gray-900 text-white py-6 rounded-[32px] font-black text-2xl shadow-[8px_8px_0px_0px_#E85D75]"
+                className="w-full bg-gray-900 text-white py-6 rounded-[32px] font-black text-2xl shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]"
               >
                 ĐÃ HIỂU!
               </button>
             </div>
           ) : (
             <>
-              <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto">
-                <CheckCircle2 className="w-12 h-12" />
+              <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto ${modal.type === 'danger' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                {modal.type === 'danger' ? <Activity className="w-16 h-16" /> : <CheckCircle2 className="w-16 h-16" />}
               </div>
-              <p className="text-2xl font-black text-gray-900">{modal.content}</p>
+              <p className="text-3xl font-black leading-tight">{modal.content || modal.title}</p>
               <button 
                 onClick={() => setModal({ ...modal, open: false })}
-                className="w-full bg-gray-900 text-white py-6 rounded-[32px] font-black text-2xl shadow-[8px_8px_0px_0px_#E85D75]"
+                className="w-full bg-gray-900 text-white py-8 rounded-[40px] font-black text-3xl shadow-xl"
               >
                 XÁC NHẬN
               </button>
@@ -1373,183 +1762,188 @@ const ElderlyMode = ({ onBack }: { onBack: () => void }) => {
         </div>
       </SimulationModal>
 
-      <header className="p-8 flex justify-between items-center bg-white border-b-8 border-gray-900 sticky top-0 z-50">
+      <nav className="p-10 flex justify-between items-center border-b-8 border-gray-900 bg-white sticky top-0 z-50">
         <div className="flex items-center gap-4 cursor-pointer" onClick={() => setActiveView('home')}>
-          <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center border-4 border-gray-900">
-            <Heart className="text-white w-10 h-10" fill="currentColor" />
+          <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center border-4 border-gray-900">
+            <Heart className="text-white w-8 h-8" fill="currentColor" />
           </div>
-          <h1 className="text-5xl font-black">CHÀO BÁC!</h1>
+          <span className="text-4xl font-black uppercase tracking-tighter text-gray-900">LinkHeart Senior</span>
         </div>
-        <button 
-          onClick={onBack} 
-          className="p-6 bg-red-500 text-white rounded-3xl border-4 border-gray-900 font-black text-2xl shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all"
-        >
-          THOÁT
-        </button>
-      </header>
+        <div className="flex items-center gap-6">
+          <button 
+            onClick={() => setHighContrast(!highContrast)} 
+            className={`p-4 rounded-2xl border-4 border-gray-900 font-black text-xs uppercase transition-all ${highContrast ? 'bg-gray-900 text-white' : 'bg-white text-gray-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'}`}
+          >
+            {highContrast ? 'Tắt Tương Phản' : 'Màu Tương Phản'}
+          </button>
+          <button onClick={onBack} className="p-6 bg-red-500 text-white rounded-3xl border-4 border-gray-900 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] active:translate-y-1 active:shadow-none transition-all">
+            <LogOut className="w-10 h-10" />
+          </button>
+        </div>
+      </nav>
 
-      <main className="flex-1 p-8">
+      <main className="flex-1 max-w-7xl mx-auto px-10 py-16 w-full space-y-16">
         <AnimatePresence mode="wait">
           {activeView === 'home' ? (
-            <motion.div 
-              key="home"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="space-y-8"
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {[
-                  { title: 'GỌI BÁC SĨ', icon: <Stethoscope className="w-24 h-24" />, color: 'bg-blue-400', content: 'Đang kết nối với bác sĩ gia đình của bác. Bác vui lòng đợi trong giây lát...' },
-                  { title: 'TÌM NGƯỜI ĐI DẠO', icon: <Users className="w-24 h-24" />, color: 'bg-green-400', content: 'Đang tìm người đồng hành đi dạo cùng bác. Cháu Minh Anh ở gần đây đang sẵn sàng!' },
-                  { title: 'HỖ TRỢ ĐI CHỢ', icon: <Smartphone className="w-24 h-24" />, color: 'bg-orange-400', content: 'Đang gửi yêu cầu hỗ trợ mua sắm cho bác. Cháu sẽ giúp bác mua thực phẩm tươi ngon nhất.' },
-                  { title: 'TÂM SỰ', icon: <MessageCircle className="w-24 h-24" />, color: 'bg-purple-400', content: 'Đang kết nối với bạn tâm tình. Cháu Thanh rất vui được trò chuyện cùng bác.' }
-                ].map((btn, i) => (
-                  <motion.button 
-                    key={i}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => {
-                      if (btn.title === 'TÌM NGƯỜI ĐI DẠO') {
-                        triggerAction(btn.title, '', 'companion', COMPANIONS[0]);
-                      } else {
-                        triggerAction(btn.title, btn.content);
-                      }
-                    }}
-                    className={`btn-huge ${btn.color} hover:scale-[1.02] transition-transform`}
-                  >
-                    {btn.icon}
-                    <span className="mt-4">{btn.title}</span>
-                  </motion.button>
-                ))}
+            <motion.div key="home" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-16">
+              
+              <div className="text-center mb-10">
+                <p className="text-4xl font-black mb-10 text-gray-600 italic">"Bác cần cháu giúp gì hôm nay không ạ?"</p>
+                <motion.button 
+                   whileHover={{ scale: 1.05 }}
+                   whileTap={{ scale: 0.95 }}
+                   onClick={handleVoiceAssistant}
+                   className={`w-56 h-56 rounded-full mx-auto flex items-center justify-center shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] relative group border-8 border-gray-900 ${isListening ? 'bg-red-600' : 'bg-primary'}`}
+                >
+                   {isListening && (
+                     <div className="absolute inset-0 rounded-full border-[10px] border-red-400 animate-ping" />
+                   )}
+                   <Mic className={`w-24 h-24 text-white ${isListening ? '' : 'group-hover:scale-110 transition-transform'}`} />
+                   <div className="absolute -bottom-14 w-full text-center">
+                      <p className={`font-black uppercase tracking-widest text-2xl transition-colors ${isListening ? 'text-red-600' : 'text-gray-900'}`}>
+                        {isListening ? 'CHÁU ĐANG NGHE...' : 'BẤM ĐỂ NÓI'}
+                      </p>
+                   </div>
+                </motion.button>
               </div>
 
-              {/* Reminders & Handbook */}
-              <div className="space-y-4">
-                <div className="bg-yellow-100 border-8 border-gray-900 p-6 rounded-[40px] flex items-center justify-between">
-                  <div className="flex items-center gap-6">
-                    <Clock className="w-12 h-12 text-gray-900" />
-                    <div>
-                      <p className="text-2xl font-black">NHẮC NHỞ: UỐNG THUỐC</p>
-                      <p className="text-lg font-bold">Bác hãy uống thuốc huyết áp nhé!</p>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => showToast('Đã ghi nhận bác uống thuốc!')}
-                    className="bg-gray-900 text-white px-8 py-4 rounded-2xl font-black text-xl"
-                  >
-                    ĐÃ XONG
-                  </button>
-                </div>
+              <div className="grid md:grid-cols-2 gap-10">
                 <button 
-                  onClick={showHandbook}
-                  className="w-full bg-blue-100 border-8 border-gray-900 p-6 rounded-[40px] flex items-center justify-center gap-4 hover:bg-blue-200 transition-colors"
+                   onClick={() => triggerAction('Gọi bác sĩ', 'Đang kết nối cuộc gọi video trực tiếp với bác sĩ gia đình...', 'info')}
+                   className="btn-huge bg-blue-100 group border-4 border-gray-900 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:bg-blue-200 transition-all p-10 rounded-[64px] flex flex-col items-center gap-6"
                 >
-                  <Shield className="w-12 h-12" />
-                  <span className="text-3xl font-black">CẨM NANG AN TOÀN CHO BÁC</span>
+                  <div className="p-8 bg-white rounded-full text-blue-600 group-hover:scale-110 transition-transform border-4 border-gray-900">
+                    <Stethoscope className="w-20 h-20" />
+                  </div>
+                  <span className="uppercase text-4xl font-black">GỌI BÁC SĨ</span>
+                </button>
+                <button 
+                  onClick={() => triggerAction('Tìm người đi dạo', 'Hệ thống đang tìm kiếm Companion ở gần bác nhất...', 'loading')}
+                  className="btn-huge bg-green-100 group border-4 border-gray-900 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:bg-green-200 transition-all p-10 rounded-[64px] flex flex-col items-center gap-6"
+                >
+                  <div className="p-8 bg-white rounded-full text-green-600 group-hover:scale-110 transition-transform border-4 border-gray-900">
+                    <Navigation className="w-20 h-20" />
+                  </div>
+                  <span className="uppercase text-4xl font-black">TÌM NGƯỜI ĐI DẠO</span>
+                </button>
+                <button 
+                  onClick={() => triggerAction('Gia đình số', 'Đang trình chiếu những hình ảnh kỷ niệm của gia đình bác...', 'info', { gallery: true })}
+                  className="btn-huge bg-purple-100 group border-4 border-gray-900 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] hover:bg-purple-200 transition-all p-10 rounded-[64px] flex flex-col items-center gap-6"
+                >
+                  <div className="p-8 bg-white rounded-full text-purple-600 group-hover:scale-110 transition-transform border-4 border-gray-900">
+                    <Users className="w-20 h-20" />
+                  </div>
+                  <span className="uppercase text-4xl font-black">GIA ĐÌNH SỐ</span>
+                </button>
+                <button 
+                  onClick={triggerSOS}
+                  className="btn-huge group border-4 border-red-600 text-red-600 font-black bg-red-50 hover:bg-red-600 hover:text-white transition-all p-10 rounded-[64px] flex flex-col items-center gap-6 shadow-[8px_8px_0px_0px_#EF4444] scale-105"
+                >
+                   <div className="p-8 bg-white text-red-600 rounded-full animate-pulse border-4 border-red-600">
+                    <Shield className="w-20 h-20" />
+                  </div>
+                  <span className="uppercase text-5xl font-black">SOS KHẨN CẤP</span>
                 </button>
               </div>
 
-              {/* Family Contacts */}
-              <div className="bg-white border-8 border-gray-900 p-8 rounded-[40px]">
-                <h3 className="text-3xl font-black mb-6">DANH BẠ NGƯỜI THÂN</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  {[
-                    { name: 'CON TRAI (MINH)', color: 'bg-green-100' },
-                    { name: 'CON GÁI (LAN)', color: 'bg-pink-100' }
-                  ].map((c, i) => (
-                    <button 
-                      key={i}
-                      onClick={() => triggerAction(`Gọi cho ${c.name}`, `Đang kết nối cuộc gọi với ${c.name}...`)}
-                      className={`${c.color} p-6 rounded-3xl border-4 border-gray-900 font-black text-xl flex flex-col items-center gap-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-1 active:translate-y-1 transition-all`}
-                    >
-                      <Phone className="w-10 h-10" />
-                      {c.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <div className="grid lg:grid-cols-2 gap-12 pt-10">
+                 <div className="bg-white p-10 rounded-[64px] border-8 border-gray-900 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] relative overflow-hidden h-[450px]">
+                    <h3 className="text-3xl font-black mb-8 uppercase flex items-center gap-4 text-gray-900">
+                       <Star className="text-yellow-500 fill-current" /> Khung ảnh kỷ niệm
+                    </h3>
+                    <motion.img 
+                       animate={{ scale: [1, 1.05, 1] }} 
+                       transition={{ duration: 15, repeat: Infinity }}
+                       src="https://picsum.photos/seed/family/800/600" 
+                       className="w-full h-full object-cover rounded-[48px]" 
+                       alt="Family Photo" 
+                       referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-x-10 bottom-10 p-6 bg-white/90 backdrop-blur rounded-3xl border-4 border-gray-900 font-bold text-2xl">
+                       "Bác Minh cùng con cháu tại buổi tiệc sinh nhật 2026"
+                    </div>
+                 </div>
 
-              {/* Voice Assistant */}
-              <div className="p-10 bg-white border-8 border-gray-900 rounded-[40px] flex flex-col items-center gap-6">
-                <p className="font-black text-3xl text-center">BÁC CẦN GÌ, HÃY NHẤN VÀ NÓI:</p>
-                <motion.button 
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => {
-                    setIsListening(!isListening);
-                    if (!isListening) {
-                      setTimeout(() => {
-                        setIsListening(false);
-                        triggerAction('Nhận diện giọng nói', 'Cháu đã nghe rõ! Bác muốn tìm người đi dạo vào lúc 4 giờ chiều nay.');
-                      }, 3000);
-                    }
-                  }}
-                  className={`w-40 h-40 rounded-full border-8 border-gray-900 flex items-center justify-center transition-all shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] ${isListening ? 'bg-red-500 voice-pulse' : 'bg-primary'}`}
-                >
-                  <Mic className="w-20 h-20 text-white" />
-                </motion.button>
-                <AnimatePresence>
-                  {isListening && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10 }} 
-                      animate={{ opacity: 1, y: 0 }} 
-                      exit={{ opacity: 0 }}
-                      className="flex flex-col items-center gap-2"
-                    >
-                      <p className="text-primary font-black text-2xl animate-pulse">ĐANG NGHE BÁC NÓI...</p>
-                      <div className="flex gap-1">
-                        {[1, 2, 3, 4, 5].map(i => (
-                          <motion.div 
-                            key={i}
-                            animate={{ height: [10, 30, 10] }}
-                            transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.1 }}
-                            className="w-2 bg-primary rounded-full"
-                          />
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                 <div className="bg-yellow-50 p-10 rounded-[64px] border-8 border-gray-900 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] h-[450px]">
+                    <h3 className="text-3xl font-black mb-8 uppercase flex items-center gap-4">
+                       <Activity className="text-primary" /> Nhắc nhở cháu Linky
+                    </h3>
+                    <div className="space-y-6">
+                       <div className="p-8 bg-white rounded-3xl border-4 border-primary flex items-center gap-8 group hover:bg-primary/5 transition-all cursor-pointer">
+                          <Clock className="w-14 h-14 text-primary" />
+                          <div>
+                             <p className="text-3xl font-black text-gray-900">Uống thuốc huyết áp</p>
+                             <p className="text-xl font-bold text-primary italic uppercase tracking-wider">ĐẾN GIỜ RỒI • 08:30</p>
+                          </div>
+                          <CheckCircle2 className="w-12 h-12 ml-auto text-primary" />
+                       </div>
+                       <div className="p-8 bg-white rounded-3xl border-4 border-gray-200 flex items-center gap-8 group hover:bg-gray-50 transition-all cursor-pointer">
+                          <Navigation className="w-14 h-14 text-orange-600" />
+                          <div>
+                             <p className="text-3xl font-black text-gray-900">Đi dạo buổi chiều</p>
+                             <p className="text-xl font-bold text-gray-400 italic uppercase">SẮP TỚI • 16:00</p>
+                          </div>
+                          <CheckCircle2 className="w-12 h-12 ml-auto opacity-10" />
+                       </div>
+                    </div>
+                 </div>
               </div>
             </motion.div>
           ) : activeView === 'tracking' && activeCompanion ? (
-            <motion.div 
-              key="tracking"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.05 }}
-              className="space-y-8"
-            >
-              <button onClick={() => setActiveView('home')} className="mb-8 flex items-center gap-2 text-gray-900 font-black hover:underline text-2xl">
-                <ArrowRight className="w-6 h-6 rotate-180" /> QUAY LẠI
-              </button>
-              <div className="grid lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2">
-                  <div className="bg-white p-4 rounded-[40px] shadow-2xl border-8 border-gray-900 relative overflow-hidden h-[500px]">
-                    <MapSimulation />
-                    <div className="absolute top-8 left-8 bg-white/90 p-6 rounded-3xl shadow-xl border-4 border-gray-900">
-                      <p className="text-sm font-black text-gray-500 uppercase">Vị trí của bác</p>
-                      <p className="text-2xl font-black text-gray-900">Công viên Tao Đàn</p>
+            <motion.div key="tracking" className="space-y-12">
+               <div className="flex items-center gap-10">
+                 <button onClick={() => setActiveView('home')} className="p-8 bg-white rounded-full border-4 border-gray-900 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-y-2 active:shadow-none transition-all">
+                    <ArrowRight className="w-16 h-16 rotate-180" />
+                 </button>
+                 <h2 className="text-6xl font-black uppercase tracking-tight text-gray-900">Theo dõi hành trình của bác</h2>
+               </div>
+               <div className="grid lg:grid-cols-3 gap-12">
+                 <div className="lg:col-span-2 h-[600px] border-8 border-gray-900 rounded-[64px] overflow-hidden relative shadow-2xl">
+                   <MapSimulation />
+                   <div className="absolute top-10 left-10 p-10 bg-white/95 backdrop-blur rounded-[48px] border-4 border-gray-900 shadow-xl max-w-md">
+                      <div className="flex items-center gap-6 mb-8">
+                         <img src={activeCompanion.img} className="w-24 h-24 rounded-full border-4 border-gray-900 shadow-lg object-cover" alt="Comp" referrerPolicy="no-referrer" />
+                         <div>
+                            <p className="text-3xl font-black text-gray-900">{activeCompanion.name}</p>
+                            <p className="text-xl font-bold text-gray-500 mb-4">Đang đồng hành cùng bác</p>
+                            <div className="grid grid-cols-1 gap-4">
+                              <button onClick={() => triggerAction('Gọi cho cháu', `Đang kết nối cuộc gọi với cháu ${activeCompanion.name}...`, 'info')} className="p-6 bg-blue-100 text-blue-600 rounded-3xl flex items-center justify-center gap-4 font-black text-2xl border-4 border-gray-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                                <Phone className="w-10 h-10" /> GỌI ĐIỆN
+                              </button>
+                              <button onClick={() => triggerAction('Nhắn tin', '', 'info', { chat: true })} className="p-6 bg-green-100 text-green-600 rounded-3xl flex items-center justify-center gap-4 font-black text-2xl border-4 border-gray-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                                <MessageCircle className="w-10 h-10" /> NHẮN TIN
+                              </button>
+                            </div>
+                         </div>
+                      </div>
+                   </div>
+                 </div>
+                 <div className="space-y-8">
+                    <div className="bg-white p-10 rounded-[64px] border-8 border-gray-900 shadow-xl">
+                       <h3 className="text-3xl font-black mb-8 border-b-4 border-gray-100 pb-4 uppercase">Trạng thái</h3>
+                       <div className="space-y-8">
+                          {[
+                            { time: '08:45 AM', text: 'Bắt đầu chuyến đi dạo', status: 'done' },
+                            { time: '09:12 AM', text: 'Đang ở Công viên Tao Đàn', status: 'current' },
+                            { time: '09:45 AM', text: 'Về nhà nghỉ ngơi', status: 'pending' }
+                          ].map((step, i) => (
+                            <div key={i} className="flex gap-6 items-start relative pb-8 last:pb-0">
+                               {i < 2 && <div className="absolute left-[23px] top-10 w-2 h-full bg-gray-100" />}
+                               <div className={`w-12 h-12 rounded-full border-4 border-gray-900 flex items-center justify-center z-10 ${step.status === 'done' ? 'bg-green-500' : step.status === 'current' ? 'bg-primary' : 'bg-gray-200'}`}>
+                                  {step.status === 'done' ? <CheckCircle2 className="w-6 h-6 text-white" /> : <Clock className="w-6 h-6 text-white" />}
+                               </div>
+                               <div>
+                                  <p className="text-xl font-black text-gray-900">{step.text}</p>
+                                  <p className="text-lg font-bold text-gray-400">{step.time}</p>
+                               </div>
+                            </div>
+                          ))}
+                       </div>
                     </div>
-                  </div>
-                </div>
-                <div className="space-y-6">
-                  <div className="bg-white p-8 rounded-[40px] shadow-xl border-8 border-gray-900 text-center">
-                    <img src={activeCompanion.img} className="w-32 h-32 rounded-full border-4 border-gray-900 mx-auto mb-6 object-cover" alt="Comp" referrerPolicy="no-referrer" />
-                    <h3 className="text-3xl font-black mb-2">{activeCompanion.name}</h3>
-                    <p className="text-xl font-bold text-gray-500 mb-8">Đang đồng hành cùng bác</p>
-                    <div className="grid grid-cols-1 gap-4">
-                      <button onClick={() => triggerAction('Gọi cho cháu', `Đang kết nối cuộc gọi với cháu ${activeCompanion.name}...`, 'info')} className="p-6 bg-blue-100 text-blue-600 rounded-3xl flex items-center justify-center gap-4 font-black text-2xl border-4 border-gray-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                        <Phone className="w-10 h-10" /> GỌI ĐIỆN
-                      </button>
-                      <button onClick={() => triggerAction('Nhắn tin', '', 'info', { chat: true })} className="p-6 bg-green-100 text-green-600 rounded-3xl flex items-center justify-center gap-4 font-black text-2xl border-4 border-gray-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                        <MessageCircle className="w-10 h-10" /> NHẮN TIN
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                 </div>
+               </div>
             </motion.div>
-          ) : (
+          ) : footerPage && (
             <motion.div 
               key="footer-page"
               initial={{ opacity: 0, scale: 0.95 }}
@@ -1560,9 +1954,9 @@ const ElderlyMode = ({ onBack }: { onBack: () => void }) => {
               <button onClick={() => setActiveView('home')} className="mb-8 flex items-center gap-2 text-gray-900 font-black hover:underline text-2xl">
                 <ArrowRight className="w-6 h-6 rotate-180" /> QUAY LẠI
               </button>
-              <h2 className="text-6xl font-black mb-8 text-gray-900 uppercase">{footerPage?.title}</h2>
+              <h2 className="text-6xl font-black mb-8 text-gray-900 uppercase">{footerPage.title}</h2>
               <div className="bg-white p-12 rounded-[40px] border-8 border-gray-900 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] space-y-8">
-                <p className="text-3xl font-bold text-gray-800 leading-relaxed">{footerPage?.content}</p>
+                <p className="text-3xl font-bold text-gray-800 leading-relaxed">{footerPage.content}</p>
                 <p className="text-xl text-gray-600 font-medium">LinkHeart luôn trân trọng và nỗ lực hết mình vì sức khỏe và niềm vui của các bác. Chúng tôi tin rằng mỗi người cao tuổi đều xứng đáng có một người bạn đồng hành tận tâm.</p>
                 <div className="grid grid-cols-2 gap-6 pt-8">
                   <img src="https://picsum.photos/seed/elderly1/500/400" className="rounded-[32px] border-4 border-gray-900" alt="Elderly 1" referrerPolicy="no-referrer" />
@@ -1574,7 +1968,6 @@ const ElderlyMode = ({ onBack }: { onBack: () => void }) => {
         </AnimatePresence>
       </main>
 
-      {/* SOS Button */}
       <motion.button 
         whileTap={{ scale: 0.8 }}
         onClick={triggerSOS}
@@ -1582,6 +1975,28 @@ const ElderlyMode = ({ onBack }: { onBack: () => void }) => {
       >
         SOS
       </motion.button>
+
+      <SimulationModal 
+        isOpen={modal.open} 
+        onClose={() => setModal({ ...modal, open: false })} 
+        title={modal.title}
+        type={modal.type}
+      >
+        {modal.data?.chat ? <ChatSimulation onBack={() => setModal({ ...modal, open: false })} /> : (
+          modal.data?.handbook ? (
+            <div className="space-y-6">
+              {modal.data.handbook.map((h: any, i: number) => (
+                <div key={i} className="p-6 bg-gray-50 rounded-3xl border-4 border-gray-200">
+                  <h4 className="text-2xl font-black mb-2 uppercase tracking-tight">{h.title}</h4>
+                  <p className="text-lg font-bold text-gray-600">{h.content}</p>
+                </div>
+              ))}
+            </div>
+          ) : modal.content || <p className="text-3xl font-black text-gray-900">Tính năng này đang được hỗ trợ.</p>
+        )}
+      </SimulationModal>
+
+      <Toast message={toast.msg} isVisible={toast.show} onClose={() => setToast({ show: false, msg: '' })} />
       <Footer theme="elderly" onToast={renderFooterPage} />
     </div>
   );
@@ -1592,6 +2007,65 @@ export default function App() {
   const [userType, setUserType] = useState<UserType>('portal');
   const [isLoading, setIsLoading] = useState(false);
   const [walletBalance, setWalletBalance] = useState(2450000);
+  
+  // Auth states
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [showAuth, setShowAuth] = useState(false);
+
+  // Trial states
+  const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
+  const [isTrialExpired, setIsTrialExpired] = useState(false);
+  const [isTrialChecking, setIsTrialChecking] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setTrialDaysLeft(null);
+      setIsTrialExpired(false);
+      return;
+    }
+
+    const checkTrial = async () => {
+      setIsTrialChecking(true);
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          // createdAt is a Timestamp in Firestore
+          const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : (data.createdAt ? new Date(data.createdAt) : null);
+          
+          if (createdAt) {
+            const now = new Date();
+            const diffInMs = now.getTime() - createdAt.getTime();
+            const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+            const remaining = Math.max(0, 15 - diffInDays);
+            
+            setTrialDaysLeft(remaining);
+            if (remaining === 0) {
+              setIsTrialExpired(true);
+            }
+          } else {
+            // If no createdAt, we assume it's just created now
+            setTrialDaysLeft(15);
+          }
+        }
+      } catch (err) {
+        console.error('Check trial error:', err);
+      } finally {
+        setIsTrialChecking(false);
+      }
+    };
+
+    checkTrial();
+  }, [user]);
 
   const handleSelect = (type: UserType) => {
     setIsLoading(true);
@@ -1601,14 +2075,86 @@ export default function App() {
     }, 1000);
   };
 
+  const handleLogout = async () => {
+    setIsLoading(true);
+    try {
+      await signOut(auth);
+      setUserType('portal');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     document.body.className = userType === 'elderly' ? 'theme-elderly' : userType === 'kids' ? 'theme-kids' : '';
   }, [userType]);
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <div className="w-16 h-16 border-8 border-primary/20 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // If not logged in, show Landing or Auth
+  if (!user) {
+    return (
+      <AnimatePresence mode="wait">
+        {!showAuth ? (
+          <motion.div key="landing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <LandingPage onGetStarted={() => setShowAuth(true)} />
+          </motion.div>
+        ) : (
+          <motion.div key="auth" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
+            <Auth onBack={() => setShowAuth(false)} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    );
+  }
+
+  if (isTrialExpired) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center p-6">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-xl bg-white rounded-[48px] shadow-2xl border-8 border-white p-12 text-center"
+        >
+          <div className="w-24 h-24 bg-red-100 rounded-[28px] flex items-center justify-center text-red-500 shadow-xl mx-auto mb-8 transform -rotate-3">
+            <Clock className="w-12 h-12" />
+          </div>
+          <h2 className="text-4xl font-black mb-6 leading-tight">Hết hạn dùng thử!</h2>
+          <p className="text-xl text-gray-500 font-bold mb-10 leading-relaxed">
+            Khoảng thời gian 15 ngày trải nghiệm miễn phí của bạn đã kết thúc. <br />
+            Để tiếp tục sử dụng trọn bộ tính năng của LinkHeart, vui lòng nâng cấp tài khoản của bạn.
+          </p>
+          <div className="space-y-4">
+            <button 
+              onClick={() => window.location.href = 'https://linkheart.vn/upgrading'} 
+              className="w-full py-6 bg-primary text-white font-black text-2xl rounded-3xl shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all"
+            >
+              ĐĂNG KÝ NGAY
+            </button>
+            <button 
+              onClick={handleLogout}
+              className="w-full py-4 text-gray-400 font-bold hover:text-gray-600 transition-colors"
+            >
+              Đăng xuất
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen relative">
       <AnimatePresence>
-        {isLoading && (
+        {(isLoading || isTrialChecking) && (
           <motion.div 
             initial={{ opacity: 0 }} 
             animate={{ opacity: 1 }} 
@@ -1616,10 +2162,35 @@ export default function App() {
             className="fixed inset-0 z-[200] bg-white flex flex-col items-center justify-center"
           >
             <div className="w-20 h-20 border-8 border-primary/20 border-t-primary rounded-full animate-spin mb-6" />
-            <p className="text-2xl font-bold text-primary animate-pulse">Đang tải giao diện thích ứng...</p>
+            <p className="text-2xl font-bold text-primary animate-pulse">
+              {isTrialChecking ? 'Đang kiểm tra quyền truy cập...' : 'Đang tải giao diện thích ứng...'}
+            </p>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Auth Info & Logout Float */}
+      <div className="fixed top-6 right-6 z-[100] flex items-center gap-4">
+         {trialDaysLeft !== null && (
+           <div className={`px-4 py-2 rounded-full border-2 font-black text-xs shadow-lg hidden md:block ${trialDaysLeft <= 3 ? 'bg-red-50 border-red-200 text-red-500' : 'bg-green-50 border-green-200 text-green-500'}`}>
+              DÙNG THỬ: {trialDaysLeft} NGÀY CÒN LẠI
+           </div>
+         )}
+         <div className="bg-white/80 backdrop-blur p-2 pr-6 rounded-full shadow-xl border-4 border-white flex items-center gap-3">
+            <img src={user.photoURL || `https://picsum.photos/seed/${user.uid}/40/40`} className="w-10 h-10 rounded-full border-2 border-primary shadow-sm" alt="User" referrerPolicy="no-referrer" />
+            <div>
+              <p className="text-xs font-black text-gray-400 uppercase leading-none mb-1">Thành viên</p>
+              <p className="text-sm font-black text-gray-900 leading-none truncate max-w-[120px]">{user.displayName || user.email?.split('@')[0]}</p>
+            </div>
+            <button 
+              onClick={handleLogout}
+              className="ml-4 p-3 bg-red-50 text-red-500 rounded-full hover:bg-red-500 hover:text-white transition-all shadow-sm"
+              title="Đăng xuất"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+         </div>
+      </div>
 
       <AnimatePresence mode="wait">
         {userType === 'portal' && (

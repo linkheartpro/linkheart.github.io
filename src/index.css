@@ -22,6 +22,7 @@
   /* Elderly Theme */
   --color-elderly-bg: #FFF9E6;
   --color-elderly-text: #1A1A1A;
+  --color-elderly-accent: #FFA000;
 }
 
 @layer base {
@@ -33,20 +34,31 @@
   }
 }
 
+/* --- High Contrast Mode --- */
+.high-contrast {
+  --color-elderly-bg: #000000;
+  --color-elderly-text: #FFD700;
+  --color-elderly-accent: #FFFFFF;
+}
+
 /* Elderly Mode Overrides */
 .theme-elderly {
-  font-size: 1.25rem; /* Base font size increase */
+  font-size: 1.5rem; /* Base font size increase per PDF (150%) */
   background-color: var(--color-elderly-bg);
   color: var(--color-elderly-text);
+  @apply selection:bg-elderly-accent;
 }
 
-.theme-elderly h1, .theme-elderly h2, .theme-elderly h3 {
-  font-size: 2.5rem;
-  font-weight: 800;
-}
+.theme-elderly h1 { font-size: 3.5rem; font-weight: 900; }
+.theme-elderly h2 { font-size: 2.8rem; font-weight: 800; }
 
 .theme-elderly .btn-huge {
-  @apply w-full aspect-square flex flex-col items-center justify-center gap-4 p-8 rounded-[40px] border-4 border-gray-900 text-2xl font-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)];
+  @apply w-full min-h-[120px] flex flex-col items-center justify-center gap-6 p-10 rounded-[48px] border-8 border-gray-900 text-3xl font-black shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] transition-transform active:scale-95 active:shadow-none bg-white text-gray-900;
+}
+
+/* 3D "Physical" Button Style */
+.btn-3d {
+  @apply relative translate-y-[-4px] border-b-[8px] border-black active:translate-y-[0px] active:border-b-0;
 }
 
 /* Kids Mode Overrides */
