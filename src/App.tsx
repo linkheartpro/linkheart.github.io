@@ -48,7 +48,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { GoogleGenAI } from "@google/genai";
 import { auth, db } from "./firebase";
 import { onAuthStateChanged, signOut, User as FirebaseUser } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, getDocs, query, where, setDoc, serverTimestamp } from "firebase/firestore";
 import LandingPage from "./components/LandingPage";
 import Auth from "./components/Auth";
 
@@ -720,12 +720,24 @@ const KidsMode = ({ onBack }: { onBack: () => void }) => {
     setModal({ open: true, title, content, type, data });
   };
 
-  const showRandomCompanion = () => {
+  const showRandomCompanion = async () => {
+    const path = "companions";
     showSimulation('Tìm kiếm', '', 'loading');
-    setTimeout(() => {
-      const randomComp = COMPANIONS[Math.floor(Math.random() * COMPANIONS.length)];
+    try {
+      const companionsRef = collection(db, path);
+      const snapshot = await getDocs(companionsRef);
+      const companionsData = snapshot.docs.map(doc => doc.data() as Companion);
+      
+      if (companionsData.length === 0) {
+        showSimulation('Opps!', 'Hiện chưa có Companion nào đăng ký dịch vụ này.', 'info');
+        return;
+      }
+
+      const randomComp = companionsData[Math.floor(Math.random() * companionsData.length)];
       showSimulation('Đã tìm thấy Companion!', '', 'companion', randomComp);
-    }, 2000);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, path);
+    }
   };
 
   const showHandbook = () => {
@@ -1098,12 +1110,24 @@ const ProMode = ({ onBack, walletBalance, setWalletBalance }: { onBack: () => vo
     setModal({ open: true, title, content, type, data });
   };
 
-  const showRandomCompanion = (service: string) => {
+  const showRandomCompanion = async (service: string) => {
     showSimulation(`Đặt lịch ${service}`, '', 'loading');
-    setTimeout(() => {
-      const randomComp = COMPANIONS[Math.floor(Math.random() * COMPANIONS.length)];
+    try {
+      const companionsRef = collection(db, "companions");
+      const snapshot = await getDocs(companionsRef);
+      const companionsData = snapshot.docs.map(doc => doc.data() as Companion);
+      
+      if (companionsData.length === 0) {
+        showSimulation('Opps!', 'Hiện chưa có Companion nào đăng ký dịch vụ này.', 'info');
+        return;
+      }
+
+      const randomComp = companionsData[Math.floor(Math.random() * companionsData.length)];
       showSimulation('Đã tìm thấy Companion!', '', 'companion', { ...randomComp, service });
-    }, 1500);
+    } catch (error) {
+      console.error("Fetch Companions Error:", error);
+      showSimulation('Lỗi', 'Không thể kết nối với cơ sở dữ liệu để tìm Companion.', 'danger');
+    }
   };
 
   const showToast = (msg: string) => {
@@ -1813,13 +1837,23 @@ const ElderlyMode = ({ onBack }: { onBack: () => void }) => {
 
   const handleVoiceAssistant = () => {
     setIsListening(true);
-    setTimeout(() => {
+    setTimeout(async () => {
       setIsListening(false);
-      triggerAction('Trợ lý Linky', 'Linky đã hiểu: Bác muốn tìm người đi dạo vào 4h chiều nay. Đang kết nối với 3 Companion phù hợp nhất...', 'loading');
-      setTimeout(() => {
-        const seniorComp = COMPANIONS[3]; 
-        triggerAction('Đã đặt thành công!', 'Cháu Hiếu sẽ đến đón bác vào 4h chiều nay nhé. Bác nhớ mang theo áo khoác ạ!', 'companion', seniorComp);
-      }, 3000);
+      triggerAction('Trợ lý Linky', 'Linky đã hiểu: Bác muốn tìm người đi dạo vào 4h chiều nay. Đang kết nối với Companion phù hợp nhất...', 'loading');
+      try {
+        const companionsRef = collection(db, "companions");
+        const snapshot = await getDocs(companionsRef);
+        const companionsData = snapshot.docs.map(doc => doc.data() as Companion);
+        
+        if (companionsData.length > 0) {
+          const seniorComp = companionsData[Math.floor(Math.random() * companionsData.length)]; 
+          triggerAction('Đã đặt thành công!', `Cháu ${seniorComp.name} sẽ đến đón bác vào 4h chiều nay nhé. Bác nhớ mang theo áo khoác ạ!`, 'companion', seniorComp);
+        } else {
+          showToast('Hiện chưa tìm thấy Companion nào cho bác.');
+        }
+      } catch (err) {
+        showToast('Lỗi kết nối máy chủ.');
+      }
     }, 2500);
   };
 
@@ -2319,6 +2353,86 @@ const PaymentPage = ({ onBack, plan, user }: { onBack: () => void; plan: Plan; u
   );
 };
 
+// --- Error Handling ---
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    tenantId: string | null | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  // We keep it as console error and don't necessarily throw if we want the app to keep running,
+  // but the instructions say "throw a new error with a very specific JSON object".
+  // Let's follow to be safe.
+  throw new Error(JSON.stringify(errInfo));
+}
+
+// --- Seed Helpers ---
+const seedCompanionsIfNeeded = async () => {
+  const path = "companions";
+  try {
+    const companionsRef = collection(db, path);
+    const snapshot = await getDocs(companionsRef);
+    if (snapshot.empty) {
+      console.log("Seeding companions to database...");
+      for (const c of COMPANIONS) {
+        await setDoc(doc(db, path, c.id), {
+          ...c,
+          createdAt: serverTimestamp()
+        });
+      }
+      console.log("Seeding complete!");
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('Missing or insufficient permissions')) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    } else {
+      console.error("Seeding Error:", error);
+    }
+  }
+};
+
 // --- Main App ---
 export default function App() {
   const [userType, setUserType] = useState<UserType>('portal');
@@ -2335,6 +2449,12 @@ export default function App() {
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
   const [isTrialExpired, setIsTrialExpired] = useState(false);
   const [isTrialChecking, setIsTrialChecking] = useState(false);
+  
+  useEffect(() => {
+    if (!authLoading && user) {
+      seedCompanionsIfNeeded();
+    }
+  }, [user, authLoading]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {

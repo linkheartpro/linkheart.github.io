@@ -13,12 +13,33 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "email"]
+    },
+    "Companion": {
+      "title": "Companion",
+      "description": "Stores companion (service provider) information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "age": { "type": "number" },
+        "school": { "type": "string" },
+        "rating": { "type": "number" },
+        "bio": { "type": "string" },
+        "img": { "type": "string" },
+        "skills": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "school"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "UserProfile",
       "description": "Individual user profiles"
+    },
+    "/companions/{companionId}": {
+      "schema": "Companion",
+      "description": "Registered companions"
     }
   }
 }
